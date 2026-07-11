@@ -391,6 +391,21 @@ app.post('/api/backups/restore/:filename', auth.authMiddleware, (req, res) => {
   }
 });
 
+// Basic API root / health-check endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Homestay Booking API',
+    endpoints: [
+      '/api/auth-status',
+      '/api/login',
+      '/api/bookings',
+      '/api/properties',
+      '/api/settings'
+    ]
+  });
+});
+
 // For all other requests, serve index.html (SPA routing support)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
