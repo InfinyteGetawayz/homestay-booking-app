@@ -5,6 +5,7 @@ import BookingDetails from './components/BookingDetails';
 import CalendarScreen from './components/CalendarScreen';
 import Settings from './components/Settings';
 import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, Lock, Wifi, WifiOff } from 'lucide-react';
+import { API_BASE } from './apiBase';
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('auth_token') || '');
@@ -63,7 +64,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(${API_BASE}/auth-status');
+      const res = await fetch(`${API_BASE}/auth-status`);
       const data = await res.json();
       setIsPinSetup(data.isSetup);
     } catch (e) {
@@ -80,7 +81,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(${API_BASE}/properties');
+      const res = await fetch(`${API_BASE}/properties`);
       const data = await res.json();
       setProperties(data);
       localStorage.setItem('properties_cache', JSON.stringify(data));
@@ -101,7 +102,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(${API_BASE}/bookings', {
+      const res = await fetch(`${API_BASE}/bookings`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401 || res.status === 403) {
@@ -127,7 +128,7 @@ export default function App() {
 
     for (const payload of queue) {
       try {
-        const res = await fetch(${API_BASE}/bookings', {
+        const res = await fetch(`${API_BASE}/bookings`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -175,7 +176,7 @@ export default function App() {
     if (!codeToSubmit) return;
     
     try {
-      const res = await fetch(${API_BASE}/login', {
+      const res = await fetch(`${API_BASE}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: codeToSubmit })
@@ -210,7 +211,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(${API_BASE}/setup-pin', {
+      const res = await fetch(`${API_BASE}/setup-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: setupPin })
@@ -251,7 +252,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/bookings/${bookingId}`, {
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

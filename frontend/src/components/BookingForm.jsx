@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Calendar, Users, DollarSign, Save, AlertTriangle } from 'lucide-react';
+import { API_BASE } from '../apiBase';
 
 export default function BookingForm({ token, bookings = [], properties = [], onBookingCreated }) {
   // 17 Form Inputs state
@@ -204,7 +205,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     };
 
     try {
-      const res = await fetch(${API_BASE}/bookings', {
+      const res = await fetch(`${API_BASE}/bookings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

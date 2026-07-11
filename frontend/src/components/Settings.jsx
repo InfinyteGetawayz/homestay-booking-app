@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Bell, Download, RefreshCw, AlertTriangle, Key, Plus, Trash2, Settings as SetIcon } from 'lucide-react';
+import { API_BASE } from '../apiBase';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -55,7 +56,7 @@ export default function Settings({ token, onLogout }) {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch(${API_BASE}/settings', {
+      const res = await fetch(`${API_BASE}/settings`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -69,7 +70,7 @@ export default function Settings({ token, onLogout }) {
 
   const fetchProperties = async () => {
     try {
-      const res = await fetch(${API_BASE}/properties');
+      const res = await fetch(`${API_BASE}/properties`);
       const data = await res.json();
       setProperties(data);
       localStorage.setItem('properties_cache', JSON.stringify(data));
@@ -88,7 +89,7 @@ export default function Settings({ token, onLogout }) {
     const nextVal = !globalMute;
     setGlobalMute(nextVal);
     try {
-      await fetch(${API_BASE}/settings', {
+      await fetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -121,7 +122,7 @@ export default function Settings({ token, onLogout }) {
         const sub = await reg.pushManager.getSubscription();
         if (sub) {
           await sub.unsubscribe();
-          await fetch(${API_BASE}/unsubscribe', {
+          await fetch(`${API_BASE}/unsubscribe`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -139,7 +140,7 @@ export default function Settings({ token, onLogout }) {
           return;
         }
 
-        const res = await fetch(${API_BASE}/vapid-key');
+        const res = await fetch(`${API_BASE}/vapid-key`);
         const { publicKey } = await res.json();
 
         const subscription = await reg.pushManager.subscribe({
@@ -147,7 +148,7 @@ export default function Settings({ token, onLogout }) {
           applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
 
-        await fetch(${API_BASE}/subscribe', {
+        await fetch(`${API_BASE}/subscribe`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -175,7 +176,7 @@ export default function Settings({ token, onLogout }) {
     }
 
     try {
-      const res = await fetch(${API_BASE}/change-pin', {
+      const res = await fetch(`${API_BASE}/change-pin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -215,7 +216,7 @@ export default function Settings({ token, onLogout }) {
     };
 
     try {
-      const res = await fetch(${API_BASE}/properties', {
+      const res = await fetch(`${API_BASE}/properties`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,7 +312,7 @@ export default function Settings({ token, onLogout }) {
   const fetchBackups = async () => {
     setLoadingBackups(true);
     try {
-      const res = await fetch(${API_BASE}/backups', {
+      const res = await fetch(`${API_BASE}/backups`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -363,7 +364,7 @@ export default function Settings({ token, onLogout }) {
   };
 
   const handleExportCSV = () => {
-    fetch(${API_BASE}/export-csv', {
+    fetch(`${API_BASE}/export-csv`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.blob())
