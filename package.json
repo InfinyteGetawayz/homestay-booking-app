@@ -1,0 +1,14 @@
+{
+  "name": "homestay-booking-app",
+  "version": "1.0.0",
+  "description": "Homestay Booking Management App for Infinite Getaways",
+  "scripts": {
+    "install-all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "build": "node build.js",
+    "start": "node backend/server.js",
+     "deploy-static": "node scripts/deploy-static.js"
+  },
+  "keywords": [],
+  "author": "Infinite Getaways",
+  "license": "ISC"
+}

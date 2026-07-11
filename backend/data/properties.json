@@ -1,0 +1,33 @@
+[
+  {
+    "id": "KGH",
+    "name": "Kanchan Ghar Homestay",
+    "rooms": [
+      "R1",
+      "R2",
+      "R3",
+      "L1"
+    ]
+  },
+  {
+    "id": "MBH",
+    "name": "Mungpoo Bliss Homestay",
+    "rooms": [
+      "FR",
+      "FL",
+      "BL",
+      "BR"
+    ]
+  },
+  {
+    "id": "SBH",
+    "name": "Sangsey Bliss Homestay",
+    "rooms": [
+      "G1",
+      "G2",
+      "G3",
+      "G4",
+      "B1"
+    ]
+  }
+]

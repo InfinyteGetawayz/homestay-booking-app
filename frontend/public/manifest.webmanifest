@@ -1,0 +1,23 @@
+{
+  "name": "Infinite Getaways Booking Manager",
+  "short_name": "Bookings",
+  "description": "Homestay Booking Management App for Kanchan Ghar (KGH) and Mungpoo Bliss (MBH)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1d",
+  "theme_color": "#111827",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
