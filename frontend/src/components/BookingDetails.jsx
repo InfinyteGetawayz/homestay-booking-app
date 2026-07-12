@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateBookingPDF, shareBookingPDFViaWhatsApp } from '../utils/pdfGenerator';
 import { ArrowLeft, FileText, Share2, Trash2, User, Phone, Calendar, Home, MessageSquare, Briefcase } from 'lucide-react';
+import { API_BASE } from '../apiBase';
 
 export default function BookingDetails({ booking, token, onBack, onUpdateBooking, onDeleteBooking }) {
   const [settlement, setSettlement] = useState(booking.settlement || 'No');
@@ -25,7 +26,7 @@ export default function BookingDetails({ booking, token, onBack, onUpdateBooking
   const handleUpdateStatus = async (newSettlement, newStatus) => {
     setIsUpdating(true);
     try {
-      const res = await fetch(`/api/bookings/${booking.bookingId}`, {
+      const res = await fetch(`${API_BASE}/bookings/${booking.bookingId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

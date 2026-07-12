@@ -1,6 +1,6 @@
 const CACHE_NAME = 'infinite-getaways-v1';
-const base = import.meta.env.BASE_URL || '/';
-const swUrl = `${base}service-worker.js`;
+// Service worker runs in worker context — avoid import.meta and window APIs here.
+const base = '/';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,12 +8,6 @@ const STATIC_ASSETS = [
   '/icon-192.png',
   '/icon-512.png'
 ];
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register(swUrl, { scope: base })
-    .then(() => console.log('sw registered', swUrl))
-    .catch(e => console.warn('Service Worker registration failed:', e));
-}
 
 // Install: Cache core static assets
 self.addEventListener('install', event => {

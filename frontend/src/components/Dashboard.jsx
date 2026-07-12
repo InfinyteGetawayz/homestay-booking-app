@@ -19,6 +19,8 @@ function formatOrdinalDate(dateStr) {
   return `${getOrdinalNum(day)} ${month} ${year}`;
 }
 
+import { API_BASE } from '../apiBase';
+
 export default function Dashboard({ bookings = [], properties = [], token, onSelectBooking, onRefresh, onUpdateBooking }) {
   const [activeTab, setActiveTab] = useState('bookings'); // 'bookings' | 'ledger'
   const [ledgerSubTab, setLedgerSubTab] = useState('pending'); // 'pending' | 'paid'
@@ -131,7 +133,7 @@ export default function Dashboard({ bookings = [], properties = [], token, onSel
 
   const handleSettleLabor = async (bookingId) => {
     try {
-      const res = await fetch(`/api/bookings/${bookingId}`, {
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

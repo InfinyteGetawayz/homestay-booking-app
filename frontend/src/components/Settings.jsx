@@ -249,7 +249,7 @@ export default function Settings({ token, onLogout }) {
     }
 
     try {
-      const res = await fetch(`/api/properties/${deletePropId}`, {
+      const res = await fetch(`${API_BASE}/properties/${deletePropId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -289,7 +289,7 @@ export default function Settings({ token, onLogout }) {
       .filter(r => r.length > 0);
 
     try {
-      const res = await fetch(`/api/properties/${selectedPropId}/rooms`, {
+      const res = await fetch(`${API_BASE}/properties/${selectedPropId}/rooms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +325,7 @@ export default function Settings({ token, onLogout }) {
   };
 
   const handleDownloadBackup = (filename) => {
-    fetch(`/api/backups/download/${filename}`, {
+    fetch(`${API_BASE}/backups/download/${filename}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.blob())
@@ -347,7 +347,7 @@ export default function Settings({ token, onLogout }) {
     }
 
     try {
-      const res = await fetch(`/api/backups/restore/${filename}`, {
+      const res = await fetch(`${API_BASE}/backups/restore/${filename}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
