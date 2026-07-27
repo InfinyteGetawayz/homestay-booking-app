@@ -233,7 +233,7 @@ app.get('/api/bookings', auth.authMiddleware, (req, res) => {
   res.json(csvDb.getBookings());
 });
 
-app.post('/api/bookings', auth.authMiddleware, (req, res) => {
+app.post('/api/bookings', auth.authMiddleware, async (req, res) => {
   const bookingData = req.body;
   
   // Validation
