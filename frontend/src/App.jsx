@@ -168,24 +168,6 @@ export default function App() {
   };
 
   // 2. PIN login & Setup handlers
-  const handlePinKeyPress = (val) => {
-    setLoginError('');
-    if (val === 'clear') {
-      setPinCode('');
-    } else if (val === 'submit') {
-      submitLogin();
-    } else {
-      if (pinCode.length < 6) {
-        const nextPin = pinCode + val;
-        setPinCode(nextPin);
-        if (nextPin.length >= 4) {
-          // Auto submit login on 4-6 digit PIN entry for speed
-          setTimeout(() => submitLogin(nextPin), 150);
-        }
-      }
-    }
-  };
-
   const submitLogin = async (codeToSubmit = pinCode) => {
     if (!codeToSubmit) return;
     
@@ -353,36 +335,31 @@ export default function App() {
             Enter PIN code to access Booking Manager
           </p>
 
-          {/* Indicators */}
-          <div className="pin-indicator">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className={`pin-dot ${i < pinCode.length ? 'filled' : ''}`} />
-            ))}
-          </div>
-
           {loginError && (
             <p style={{ color: 'var(--accent-rose)', fontSize: '0.8rem', fontWeight: '600', marginBottom: '10px' }}>
               ⚠️ {loginError}
             </p>
           )}
 
-          {/* Numpad */}
-          <div className="pin-pad">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-              <button key={num} type="button" onClick={() => handlePinKeyPress(String(num))} className="pin-key">
-                {num}
-              </button>
-            ))}
-            <button type="button" onClick={() => handlePinKeyPress('clear')} className="pin-key" style={{ fontSize: '0.9rem', color: 'var(--accent-rose)' }}>
-              Clear
+          <form onSubmit={(e) => { e.preventDefault(); submitLogin(); }} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              autoFocus
+              className="form-control"
+              placeholder="Enter PIN"
+              value={pinCode}
+              onChange={(e) => {
+                setLoginError('');
+                setPinCode(e.target.value.replace(/\D/g, ''));
+              }}
+            />
+            <button type="submit" className="btn btn-primary" style={{ padding: '12px' }}>
+              Unlock
             </button>
-            <button type="button" onClick={() => handlePinKeyPress('0')} className="pin-key">
-              0
-            </button>
-            <button type="button" onClick={() => handlePinKeyPress('submit')} className="pin-key" style={{ fontSize: '0.9rem', color: 'var(--accent-teal)' }}>
-              OK
-            </button>
-          </div>
+          </form>
         </div>
       </div>
     );
