@@ -17,7 +17,7 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-export default function Settings({ token, onLogout }) {
+export default function Settings({ token, onLogout, onPropertiesChanged }) {
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -59,6 +59,9 @@ export default function Settings({ token, onLogout }) {
       const res = await fetch(`${API_BASE}/settings`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!res.ok) {
+        throw new Error(`Settings request failed with status ${res.status}`);
+      }
       const data = await res.json();
       if (data.globalMuteReminders !== undefined) {
         setGlobalMute(data.globalMuteReminders);
@@ -71,9 +74,13 @@ export default function Settings({ token, onLogout }) {
   const fetchProperties = async () => {
     try {
       const res = await fetch(`${API_BASE}/properties`);
+      if (!res.ok) {
+        throw new Error(`Properties request failed with status ${res.status}`);
+      }
       const data = await res.json();
       setProperties(data);
       localStorage.setItem('properties_cache', JSON.stringify(data));
+      onPropertiesChanged?.(data);
       if (data.length > 0 && !selectedPropId) {
         setSelectedPropId(data[0].id);
         setRoomConfigString(data[0].rooms.join(', '));

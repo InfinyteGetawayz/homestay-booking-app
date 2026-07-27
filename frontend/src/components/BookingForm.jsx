@@ -28,7 +28,12 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
   const [communicationTransport, setCommunicationTransport] = useState('To Be Arranged');
   const [b2bAgencyName, setB2bAgencyName] = useState('');
 
-  // Fields 16 & 17: Guest Status & Settlement Swapped Interdependency
+  const addDaysToDate = (dateString, days) => {
+    const date = new Date(dateString);
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0];
+  };
+
   const [guestStatus, setGuestStatus] = useState('Pending'); // Position 1: Pending | Completed Stay | No Show
   const [settlementCleared, setSettlementCleared] = useState('No'); // Position 2: Yes | No (CONDITIONAL: Disabled by default)
 
@@ -82,8 +87,22 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
 
     const dIn = new Date(checkInDate);
     const dOut = new Date(checkOutDate);
+    if (dOut <= dIn) {
+      setComputed({
+        totalNights: 0,
+        totalPax: numberAdults + numberChildren5Plus,
+        totalAdultTariff: 0,
+        totalChildTariff: 0,
+        finalTariff: 0,
+        pendingAmount: 0,
+        foodingTotal: 0,
+        lodgingTotal: 0
+      });
+      return;
+    }
+
     const diffTime = dOut.getTime() - dIn.getTime();
-    const totalNights = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const totalNights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     const totalPax = numberAdults + numberChildren5Plus;
 
@@ -155,6 +174,14 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     }
   };
 
+  useEffect(() => {
+    if (!checkInDate) return;
+    const minCheckout = addDaysToDate(checkInDate, 1);
+    if (!checkOutDate || new Date(checkOutDate) <= new Date(checkInDate)) {
+      setCheckOutDate(minCheckout);
+    }
+  }, [checkInDate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
@@ -169,7 +196,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
 
     const dIn = new Date(checkInDate);
     const dOut = new Date(checkOutDate);
-    if (dOut <= dIn) return setSubmitError('Check-Out date must be after Check-In date.');
+    if (dOut <= dIn) return setSubmitError('Check-Out date must be at least one day after Check-In date.');
 
     const dBook = new Date(bookingDate);
     if (dIn < dBook) return setSubmitError('Check-In date cannot be prior to Booking date.');
@@ -220,6 +247,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
         setSubmitError(data.error || 'Failed to save booking.');
       }
     } catch (err) {
+      console.error('Booking submission failed:', err);
       setSubmitError('Connection failed. Queueing booking offline...');
       // Local sync queue for offline capability
       const offlineQueue = JSON.parse(localStorage.getItem('booking_sync_queue') || '[]');
@@ -345,6 +373,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
                 type="date" 
                 className="form-control" 
                 value={checkOutDate}
+                min={checkInDate ? addDaysToDate(checkInDate, 1) : undefined}
                 onChange={e => setCheckOutDate(e.target.value)}
                 required
               />

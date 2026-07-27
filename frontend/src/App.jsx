@@ -7,6 +7,8 @@ import Settings from './components/Settings';
 import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, Lock, Wifi, WifiOff } from 'lucide-react';
 import { API_BASE } from './apiBase';
 
+const isApiErrorResponse = (response) => response && !response.ok && response.status !== 0;
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('auth_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState(!!token);
@@ -44,7 +46,10 @@ export default function App() {
 
     if (isAuthenticated) {
       fetchProperties();
-      fetchBookings();
+      if (navigator.onLine) {
+        fetchBookings();
+        syncOfflineQueue();
+      }
     }
 
     return () => {
@@ -65,6 +70,9 @@ export default function App() {
 
     try {
       const res = await fetch(`${API_BASE}/auth-status`);
+      if (isApiErrorResponse(res)) {
+        throw new Error(`Auth check failed with status ${res.status}`);
+      }
       const data = await res.json();
       setIsPinSetup(data.isSetup);
     } catch (e) {
@@ -82,6 +90,9 @@ export default function App() {
 
     try {
       const res = await fetch(`${API_BASE}/properties`);
+      if (isApiErrorResponse(res)) {
+        throw new Error(`Properties request failed with status ${res.status}`);
+      }
       const data = await res.json();
       setProperties(data);
       localStorage.setItem('properties_cache', JSON.stringify(data));
@@ -108,6 +119,9 @@ export default function App() {
       if (res.status === 401 || res.status === 403) {
         handleLogout();
         return;
+      }
+      if (isApiErrorResponse(res)) {
+        throw new Error(`Bookings request failed with status ${res.status}`);
       }
       const data = await res.json();
       setBookings(data);
@@ -235,14 +249,20 @@ export default function App() {
   };
 
   // 3. Booking list changes (add, update, delete)
-  const handleBookingCreated = (newBooking) => {
-    setBookings([newBooking, ...bookings]);
+  const handleBookingCreated = async (newBooking) => {
+    setBookings(prev => [newBooking, ...prev]);
     setCurrentTab('dashboard');
+    if (navigator.onLine && token) {
+      await fetchBookings();
+    }
   };
 
-  const handleUpdateBooking = (updatedBooking) => {
-    setBookings(bookings.map(b => b.bookingId === updatedBooking.bookingId ? updatedBooking : b));
+  const handleUpdateBooking = async (updatedBooking) => {
+    setBookings(prev => prev.map(b => b.bookingId === updatedBooking.bookingId ? updatedBooking : b));
     setSelectedBooking(updatedBooking);
+    if (navigator.onLine && token) {
+      await fetchBookings();
+    }
   };
 
   const handleDeleteBooking = async (bookingId) => {
@@ -257,14 +277,20 @@ export default function App() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        setBookings(bookings.filter(b => b.bookingId !== bookingId));
+        setBookings(prev => prev.filter(b => b.bookingId !== bookingId));
         setSelectedBooking(null);
+        await fetchBookings();
       } else {
         alert('Failed to delete booking.');
       }
     } catch (err) {
       alert('Network error deleting booking.');
     }
+  };
+
+  const handlePropertiesChanged = (nextProperties) => {
+    setProperties(nextProperties);
+    localStorage.setItem('properties_cache', JSON.stringify(nextProperties));
   };
 
   // Render Login or Setup first
@@ -441,6 +467,7 @@ export default function App() {
             <Settings 
               token={token} 
               onLogout={handleLogout} 
+              onPropertiesChanged={handlePropertiesChanged}
             />
           )}
         </>
