@@ -150,6 +150,13 @@ function getBookings() {
   }
 }
 
+// Write the CSV content atomically to avoid partial or conflicting writes
+function writeCsvAtomically(content) {
+  const tempPath = `${CSV_FILE}.tmp`;
+  fs.writeFileSync(tempPath, content, 'utf8');
+  fs.renameSync(tempPath, CSV_FILE);
+}
+
 // Save all bookings (with automatic backup)
 function saveBookings(bookings) {
   createBackup();
@@ -166,7 +173,7 @@ function saveBookings(bookings) {
     content += toCSVRow(row);
   });
   
-  fs.writeFileSync(CSV_FILE, content, 'utf8');
+  writeCsvAtomically(content);
 }
 
 // Generate sequential booking ID

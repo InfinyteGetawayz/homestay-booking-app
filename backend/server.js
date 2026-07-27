@@ -27,12 +27,36 @@ function getProperties() {
   }
 }
 
+function writeAtomicJson(filePath, data) {
+  const tempPath = `${filePath}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
+  fs.renameSync(tempPath, filePath);
+}
+
 function saveProperties(props) {
   try {
-    fs.writeFileSync(PROPERTIES_FILE, JSON.stringify(props, null, 2), 'utf8');
+    writeAtomicJson(PROPERTIES_FILE, props);
   } catch (e) {
     console.error('Failed to save properties:', e);
   }
+}
+
+let propertyOperation = Promise.resolve();
+function queuePropertyOperation(operation) {
+  propertyOperation = propertyOperation.then(operation, err => {
+    console.error('Property operation queue error:', err);
+    return operation();
+  });
+  return propertyOperation;
+}
+
+let bookingOperation = Promise.resolve();
+function queueBookingOperation(operation) {
+  bookingOperation = bookingOperation.then(operation, err => {
+    console.error('Booking operation queue error:', err);
+    return operation();
+  });
+  return bookingOperation;
 }
 
 const app = express();
@@ -96,46 +120,79 @@ app.get('/api/properties', (req, res) => {
   res.json(getProperties());
 });
 
-app.post('/api/properties', auth.authMiddleware, (req, res) => {
+app.post('/api/properties', auth.authMiddleware, async (req, res) => {
   const { id, name, rooms } = req.body;
   if (!id || !name || !rooms || !Array.isArray(rooms)) {
     return res.status(400).json({ error: 'Invalid property configuration.' });
   }
-  const props = getProperties();
-  if (props.some(p => p.id === id)) {
-    return res.status(400).json({ error: `Property with ID ${id} already exists.` });
-  }
-  props.push({ id, name, rooms });
-  saveProperties(props);
-  res.status(201).json({ success: true, properties: props });
+
+  await queuePropertyOperation(async () => {
+    const props = getProperties();
+    if (props.some(p => p.id === id)) {
+      throw { status: 400, error: `Property with ID ${id} already exists.` };
+    }
+    props.push({ id, name, rooms });
+    saveProperties(props);
+    res.status(201).json({ success: true, properties: props });
+  }).catch(err => {
+    if (err && err.status) {
+      return res.status(err.status).json({ error: err.error });
+    }
+    console.error('Property create failed:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to save property.' });
+    }
+  });
 });
 
-app.delete('/api/properties/:id', auth.authMiddleware, (req, res) => {
+app.delete('/api/properties/:id', auth.authMiddleware, async (req, res) => {
   const { id } = req.params;
-  let props = getProperties();
-  const exists = props.some(p => p.id === id);
-  if (!exists) {
-    return res.status(404).json({ error: 'Property not found.' });
-  }
-  props = props.filter(p => p.id !== id);
-  saveProperties(props);
-  res.json({ success: true, properties: props });
+
+  await queuePropertyOperation(async () => {
+    let props = getProperties();
+    const exists = props.some(p => p.id === id);
+    if (!exists) {
+      throw { status: 404, error: 'Property not found.' };
+    }
+    props = props.filter(p => p.id !== id);
+    saveProperties(props);
+    res.json({ success: true, properties: props });
+  }).catch(err => {
+    if (err && err.status) {
+      return res.status(err.status).json({ error: err.error });
+    }
+    console.error('Property delete failed:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to delete property.' });
+    }
+  });
 });
 
-app.post('/api/properties/:id/rooms', auth.authMiddleware, (req, res) => {
+app.post('/api/properties/:id/rooms', auth.authMiddleware, async (req, res) => {
   const { id } = req.params;
   const { rooms } = req.body;
   if (!rooms || !Array.isArray(rooms)) {
     return res.status(400).json({ error: 'Rooms array is required.' });
   }
-  const props = getProperties();
-  const idx = props.findIndex(p => p.id === id);
-  if (idx === -1) {
-    return res.status(404).json({ error: 'Property not found.' });
-  }
-  props[idx].rooms = rooms;
-  saveProperties(props);
-  res.json({ success: true, properties: props });
+
+  await queuePropertyOperation(async () => {
+    const props = getProperties();
+    const idx = props.findIndex(p => p.id === id);
+    if (idx === -1) {
+      throw { status: 404, error: 'Property not found.' };
+    }
+    props[idx].rooms = rooms;
+    saveProperties(props);
+    res.json({ success: true, properties: props });
+  }).catch(err => {
+    if (err && err.status) {
+      return res.status(err.status).json({ error: err.error });
+    }
+    console.error('Property update failed:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to update property rooms.' });
+    }
+  });
 });
 
 // --- SETTINGS ENDPOINTS ---
@@ -236,8 +293,16 @@ app.post('/api/bookings', auth.authMiddleware, (req, res) => {
     ...computed
   };
 
-  bookings.push(newBooking);
-  csvDb.saveBookings(bookings);
+  await queueBookingOperation(async () => {
+    bookings.push(newBooking);
+    csvDb.saveBookings(bookings);
+  }).catch(err => {
+    console.error('Booking create failed:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to create booking.' });
+    }
+    throw err;
+  });
 
   // Trigger push alert checks for < 3 days check-in
   pushEngine.checkAndTriggerImmediate(newBooking);
@@ -245,64 +310,85 @@ app.post('/api/bookings', auth.authMiddleware, (req, res) => {
   res.status(201).json(newBooking);
 });
 
-app.put('/api/bookings/:id', auth.authMiddleware, (req, res) => {
+app.put('/api/bookings/:id', auth.authMiddleware, async (req, res) => {
   const { id } = req.params;
   const bookingData = req.body;
-  const bookings = csvDb.getBookings();
-  const idx = bookings.findIndex(b => b.bookingId === id);
+  await queueBookingOperation(async () => {
+    const bookings = csvDb.getBookings();
+    const idx = bookings.findIndex(b => b.bookingId === id);
 
-  if (idx === -1) {
-    return res.status(404).json({ error: 'Booking not found.' });
-  }
+    if (idx === -1) {
+      throw { status: 404, error: 'Booking not found.' };
+    }
 
-  // Update validation
-  if (bookingData.typeOfBooking === 'B2B' && !bookingData.b2bAgencyName) {
-    return res.status(400).json({ error: 'B2B bookings require an Agency Name.' });
-  }
+    // Update validation
+    if (bookingData.typeOfBooking === 'B2B' && !bookingData.b2bAgencyName) {
+      throw { status: 400, error: 'B2B bookings require an Agency Name.' };
+    }
 
-  // Overlapping booking checks (ignoring this booking's own ID)
-  const checkInToCheck = bookingData.checkInDate || bookings[idx].checkInDate;
-  const checkOutToCheck = bookingData.checkOutDate || bookings[idx].checkOutDate;
-  const roomsToCheck = bookingData.roomSelection || bookings[idx].roomSelection;
+    // Overlapping booking checks (ignoring this booking's own ID)
+    const checkInToCheck = bookingData.checkInDate || bookings[idx].checkInDate;
+    const checkOutToCheck = bookingData.checkOutDate || bookings[idx].checkOutDate;
+    const roomsToCheck = bookingData.roomSelection || bookings[idx].roomSelection;
 
-  const overlap = csvDb.checkRoomOverlaps(checkInToCheck, checkOutToCheck, roomsToCheck, id);
-  if (overlap) {
-    return res.status(400).json({ 
-      error: `Booking Conflict: Room ${overlap.conflictingRoom} is already reserved from ${overlap.checkInDate} to ${overlap.checkOutDate}. Please select an alternative room or adjust dates.` 
-    });
-  }
+    const overlap = csvDb.checkRoomOverlaps(checkInToCheck, checkOutToCheck, roomsToCheck, id);
+    if (overlap) {
+      throw {
+        status: 400,
+        error: `Booking Conflict: Room ${overlap.conflictingRoom} is already reserved from ${overlap.checkInDate} to ${overlap.checkOutDate}. Please select an alternative room or adjust dates.`
+      };
+    }
 
-  // Compute calculated fields using updated data
-  const updatedInputs = { ...bookings[idx], ...bookingData };
-  const computed = csvDb.computeBookingFields(updatedInputs);
+    // Compute calculated fields using updated data
+    const updatedInputs = { ...bookings[idx], ...bookingData };
+    const computed = csvDb.computeBookingFields(updatedInputs);
 
-  bookings[idx] = {
-    ...updatedInputs,
-    ...computed,
-    // Ensure ID doesn't change
-    bookingId: id
-  };
+    bookings[idx] = {
+      ...updatedInputs,
+      ...computed,
+      bookingId: id
+    };
 
-  csvDb.saveBookings(bookings);
+    csvDb.saveBookings(bookings);
 
-  // Re-check reminders
-  pushEngine.checkAndTriggerImmediate(bookings[idx]);
+    // Re-check reminders
+    pushEngine.checkAndTriggerImmediate(bookings[idx]);
 
-  res.json(bookings[idx]);
+    res.json(bookings[idx]);
+  }).catch(err => {
+    if (err && err.status) {
+      return res.status(err.status).json({ error: err.error });
+    }
+    console.error('Booking update failed:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to update booking.' });
+    }
+  });
 });
 
-app.delete('/api/bookings/:id', auth.authMiddleware, (req, res) => {
+app.delete('/api/bookings/:id', auth.authMiddleware, async (req, res) => {
   const { id } = req.params;
-  let bookings = csvDb.getBookings();
-  const exists = bookings.some(b => b.bookingId === id);
 
-  if (!exists) {
-    return res.status(404).json({ error: 'Booking not found.' });
-  }
+  await queueBookingOperation(async () => {
+    let bookings = csvDb.getBookings();
+    const exists = bookings.some(b => b.bookingId === id);
 
-  bookings = bookings.filter(b => b.bookingId !== id);
-  csvDb.saveBookings(bookings);
-  res.json({ success: true, message: 'Booking deleted successfully.' });
+    if (!exists) {
+      throw { status: 404, error: 'Booking not found.' };
+    }
+
+    bookings = bookings.filter(b => b.bookingId !== id);
+    csvDb.saveBookings(bookings);
+    res.json({ success: true, message: 'Booking deleted successfully.' });
+  }).catch(err => {
+    if (err && err.status) {
+      return res.status(err.status).json({ error: err.error });
+    }
+    console.error('Booking delete failed:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to delete booking.' });
+    }
+  });
 });
 
 // --- NOTIFICATION PUSH REGISTER ENDPOINTS ---
