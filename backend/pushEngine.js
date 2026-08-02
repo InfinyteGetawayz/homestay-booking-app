@@ -3,8 +3,22 @@ const path = require('path');
 const webPush = require('web-push');
 const csvDb = require('./csvDb');
 
-const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
-const SUBS_FILE = path.join(__dirname, 'data', 'push_subscriptions.json');
+function resolveDataDir() {
+  if (!process.env.DATA_DIR) {
+    return path.join(__dirname, 'data');
+  }
+
+  return path.isAbsolute(process.env.DATA_DIR)
+    ? process.env.DATA_DIR
+    : path.resolve(__dirname, process.env.DATA_DIR);
+}
+
+const DATA_DIR = resolveDataDir();
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const SUBS_FILE = path.join(DATA_DIR, 'push_subscriptions.json');
 
 // Initialize web-push VAPID keys
 let vapidKeys = {};

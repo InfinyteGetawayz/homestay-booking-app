@@ -3,7 +3,21 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
+function resolveDataDir() {
+  if (!process.env.DATA_DIR) {
+    return path.join(__dirname, 'data');
+  }
+
+  return path.isAbsolute(process.env.DATA_DIR)
+    ? process.env.DATA_DIR
+    : path.resolve(__dirname, process.env.DATA_DIR);
+}
+
+const DATA_DIR = resolveDataDir();
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const JWT_SECRET = process.env.JWT_SECRET || 'infinite-getaways-secret-key-1234';
 
 function loadConfig() {

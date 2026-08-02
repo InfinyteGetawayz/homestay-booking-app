@@ -1,7 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, 'data');
+function resolveDataDir() {
+  if (!process.env.DATA_DIR) {
+    return path.join(__dirname, 'data');
+  }
+
+  return path.isAbsolute(process.env.DATA_DIR)
+    ? process.env.DATA_DIR
+    : path.resolve(__dirname, process.env.DATA_DIR);
+}
+
+const DATA_DIR = resolveDataDir();
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const CSV_FILE = path.join(DATA_DIR, 'bookings.csv');
 
@@ -159,7 +169,6 @@ function writeCsvAtomically(content) {
 
 // Save all bookings (with automatic backup)
 function saveBookings(bookings) {
-  createBackup();
   let content = toCSVRow(COLUMNS);
   
   bookings.forEach(b => {

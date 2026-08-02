@@ -3,8 +3,10 @@ import Dashboard from './components/Dashboard';
 import BookingForm from './components/BookingForm';
 import BookingDetails from './components/BookingDetails';
 import CalendarScreen from './components/CalendarScreen';
+import Expenses from './components/Expenses';
+import Accounts from './components/Accounts';
 import Settings from './components/Settings';
-import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, Lock, Wifi, WifiOff } from 'lucide-react';
+import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, Lock, Wifi, WifiOff, Receipt, BarChart3 } from 'lucide-react';
 import { API_BASE } from './apiBase';
 
 const isApiErrorResponse = (response) => response && !response.ok && response.status !== 0;
@@ -20,7 +22,7 @@ export default function App() {
   const [setupError, setSetupError] = useState('');
 
   // Routing
-  const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'calendar' | 'add' | 'settings'
+  const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'calendar' | 'add' | 'expenses' | 'accounts' | 'settings'
   const [selectedBooking, setSelectedBooking] = useState(null);
 
   // Data
@@ -440,6 +442,14 @@ export default function App() {
             />
           )}
 
+          {currentTab === 'expenses' && (
+            <Expenses token={token} />
+          )}
+
+          {currentTab === 'accounts' && (
+            <Accounts token={token} bookings={bookings} />
+          )}
+
           {currentTab === 'settings' && (
             <Settings 
               token={token} 
@@ -477,6 +487,22 @@ export default function App() {
             <span>Add Guest</span>
           </button>
           
+          <button 
+            onClick={() => setCurrentTab('expenses')} 
+            className={`nav-item ${currentTab === 'expenses' ? 'active' : ''}`}
+          >
+            <Receipt className="nav-icon" />
+            <span>Expenses</span>
+          </button>
+
+          <button 
+            onClick={() => setCurrentTab('accounts')} 
+            className={`nav-item ${currentTab === 'accounts' ? 'active' : ''}`}
+          >
+            <BarChart3 className="nav-icon" />
+            <span>Accounts</span>
+          </button>
+
           <button 
             onClick={() => setCurrentTab('settings')} 
             className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}

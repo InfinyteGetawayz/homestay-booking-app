@@ -5,8 +5,23 @@ const fs = require('fs');
 const auth = require('./auth');
 const csvDb = require('./csvDb');
 const pushEngine = require('./pushEngine');
+const expenses = require('./expenses');
 
-const PROPERTIES_FILE = path.join(__dirname, 'data', 'properties.json');
+function resolveDataDir() {
+  if (!process.env.DATA_DIR) {
+    return path.join(__dirname, 'data');
+  }
+
+  return path.isAbsolute(process.env.DATA_DIR)
+    ? process.env.DATA_DIR
+    : path.resolve(__dirname, process.env.DATA_DIR);
+}
+
+const DATA_DIR = resolveDataDir();
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+const PROPERTIES_FILE = path.join(DATA_DIR, 'properties.json');
 
 function getProperties() {
   if (!fs.existsSync(PROPERTIES_FILE)) {
@@ -198,7 +213,7 @@ app.post('/api/properties/:id/rooms', auth.authMiddleware, async (req, res) => {
 // --- SETTINGS ENDPOINTS ---
 
 app.get('/api/settings', auth.authMiddleware, (req, res) => {
-  const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
+  const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
   let config = { globalMuteReminders: false };
   if (fs.existsSync(CONFIG_FILE)) {
     try {
@@ -211,7 +226,7 @@ app.get('/api/settings', auth.authMiddleware, (req, res) => {
 
 app.post('/api/settings', auth.authMiddleware, (req, res) => {
   const { globalMuteReminders } = req.body;
-  const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
+  const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
   let config = {};
   if (fs.existsSync(CONFIG_FILE)) {
     try {
@@ -231,6 +246,25 @@ app.post('/api/settings', auth.authMiddleware, (req, res) => {
 
 app.get('/api/bookings', auth.authMiddleware, (req, res) => {
   res.json(csvDb.getBookings());
+});
+
+app.get('/api/expenses', auth.authMiddleware, (req, res) => {
+  res.json(expenses.getExpenses());
+});
+
+app.post('/api/expenses', auth.authMiddleware, (req, res) => {
+  try {
+    const item = expenses.addExpense(req.body);
+    res.status(201).json(item);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to add expense.' });
+  }
+});
+
+app.delete('/api/expenses/:id', auth.authMiddleware, (req, res) => {
+  const { id } = req.params;
+  expenses.deleteExpense(id);
+  res.json({ success: true });
 });
 
 app.post('/api/bookings', auth.authMiddleware, async (req, res) => {

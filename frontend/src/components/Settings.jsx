@@ -27,9 +27,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
 
-  const [backups, setBackups] = useState([]);
-  const [loadingBackups, setLoadingBackups] = useState(false);
-  const [backupMessage, setBackupMessage] = useState({ type: '', text: '' });
+  const [exportMessage, setExportMessage] = useState({ type: '', text: '' });
 
   // Dynamic Property Registry States
   const [properties, setProperties] = useState([]);
@@ -50,7 +48,6 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
       checkPushSubscription();
     }
     fetchSettings();
-    fetchBackups();
     fetchProperties();
   }, []);
 
@@ -316,66 +313,16 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     }
   };
 
-  const fetchBackups = async () => {
-    setLoadingBackups(true);
+  const handleExportCSV = async () => {
+    setExportMessage({ type: '', text: '' });
     try {
-      const res = await fetch(`${API_BASE}/backups`, {
+      const res = await fetch(`${API_BASE}/export-csv`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await res.json();
-      setBackups(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingBackups(false);
-    }
-  };
-
-  const handleDownloadBackup = (filename) => {
-    fetch(`${API_BASE}/backups/download/${filename}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(res => res.blob())
-    .then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    })
-    .catch(err => alert('Failed to download backup.'));
-  };
-
-  const handleRestoreBackup = async (filename) => {
-    if (!window.confirm(`Are you absolutely sure you want to restore the backup: ${filename}? This will overwrite the current database!`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/backups/restore/${filename}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setBackupMessage({ type: 'success', text: `Backup restored successfully! Current database is now updated.` });
-        fetchBackups();
-      } else {
-        setBackupMessage({ type: 'error', text: data.error || 'Failed to restore backup.' });
+      if (!res.ok) {
+        throw new Error('Export failed');
       }
-    } catch (e) {
-      setBackupMessage({ type: 'error', text: 'Server connection error.' });
-    }
-  };
-
-  const handleExportCSV = () => {
-    fetch(`${API_BASE}/export-csv`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(res => res.blob())
-    .then(blob => {
+      const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -383,8 +330,11 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
       document.body.appendChild(a);
       a.click();
       a.remove();
-    })
-    .catch(err => alert('Failed to export CSV database.'));
+      window.URL.revokeObjectURL(url);
+      setExportMessage({ type: 'success', text: 'CSV exported successfully.' });
+    } catch (err) {
+      setExportMessage({ type: 'error', text: 'Failed to export CSV database.' });
+    }
   };
 
   return (
@@ -396,14 +346,19 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
           <Download size={20} /> Data Management
         </h2>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Export your bookings directly as an Excel-reconcilable CSV file.
+          Export your bookings directly as an Excel-reconcilable CSV file whenever you need it.
         </p>
         <button onClick={handleExportCSV} className="btn btn-primary" style={{ padding: '12px' }}>
           Export Database to CSV
         </button>
+        {exportMessage.text && (
+          <div style={{ marginTop: '10px', fontSize: '0.8rem', color: exportMessage.type === 'error' ? '#be123c' : '#0f766e' }}>
+            {exportMessage.text}
+          </div>
+        )}
       </div>
 
-      {/* SECTION 2: DYNAMIC PROPERTY REGISTRY ENGINE (US Version 1.1) */}
+      {/* SECTION 2: DYNAMIC PROPERTY REGISTRY ENGINE */}
       <div className="glass-panel" style={{ padding: '20px' }}>
         <h2 style={{ fontSize: '1.2rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
           <SetIcon size={20} /> Property & Inventory Scaling
@@ -628,62 +583,6 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
             Update PIN Code
           </button>
         </form>
-      </div>
-
-      {/* SECTION 5: SERVER BACKUPS */}
-      <div className="glass-panel" style={{ padding: '20px' }}>
-        <h2 style={{ fontSize: '1.2rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-          <Key size={20} /> Local Server Backups
-        </h2>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-          The server retains the last 50 database backups taken automatically before edits/saves.
-        </p>
-
-        {backupMessage.text && (
-          <div style={{ 
-            fontSize: '0.8rem', 
-            padding: '10px', 
-            borderRadius: 'var(--radius-sm)', 
-            marginBottom: '14px',
-            backgroundColor: backupMessage.type === 'success' ? 'rgba(13, 148, 136, 0.1)' : 'rgba(225, 29, 72, 0.1)',
-            color: backupMessage.type === 'success' ? 'var(--accent-teal)' : 'var(--accent-rose)',
-            border: `1px solid ${backupMessage.type === 'success' ? 'rgba(13, 148, 136, 0.2)' : 'rgba(225, 29, 72, 0.2)'}`
-          }}>
-            {backupMessage.text}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Available Backups ({backups.length})</span>
-          <button onClick={fetchBackups} disabled={loadingBackups} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
-            <RefreshCw size={14} className={loadingBackups ? 'spin-anim' : ''} /> Refresh
-          </button>
-        </div>
-
-        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
-          {backups.length === 0 ? (
-            <p style={{ padding: '14px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>No backups found.</p>
-          ) : (
-            backups.map(b => (
-              <div key={b.filename} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '10px' }}>
-                  <p style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{b.filename}</p>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    {new Date(b.createdAt).toLocaleString()} | {(b.size / 1024).toFixed(2)} KB
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                  <button onClick={() => handleDownloadBackup(b.filename)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
-                    Download
-                  </button>
-                  <button onClick={() => handleRestoreBackup(b.filename)} style={{ background: 'none', border: 'none', color: 'var(--accent-rose)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
-                    Restore
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       </div>
 
       {/* LOGOUT */}
