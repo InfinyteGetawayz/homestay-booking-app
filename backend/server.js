@@ -76,12 +76,19 @@ function queueBookingOperation(operation) {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const backendPublicDir = path.join(__dirname, 'public');
+const frontendDistDir = path.join(__dirname, '..', 'frontend', 'dist');
+const staticRoot = fs.existsSync(backendPublicDir)
+  ? backendPublicDir
+  : (fs.existsSync(frontendDistDir) ? frontendDistDir : null);
 
 app.use(cors());
 app.use(express.json());
 
-// Serve static frontend build
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static frontend build from the packaged backend folder or the frontend dist folder
+if (staticRoot) {
+  app.use(express.static(staticRoot));
+}
 
 // Start Notification Scheduler
 pushEngine.startScheduler();
@@ -528,7 +535,12 @@ app.get('/api', (req, res) => {
 
 // For all other requests, serve index.html (SPA routing support)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const indexPath = staticRoot ? path.join(staticRoot, 'index.html') : path.join(backendPublicDir, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Frontend build not found.');
+  }
 });
 
 app.listen(PORT, '0.0.0.0', () => {
