@@ -10,6 +10,22 @@ import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, L
 import { API_BASE } from './apiBase';
 
 const isApiErrorResponse = (response) => response && !response.ok && response.status !== 0;
+const LOCAL_PIN_KEY = 'local_app_pin';
+const readLocalData = (key, fallback = []) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (error) {
+    console.warn(`Failed to read local storage key ${key}:`, error);
+    return fallback;
+  }
+};
+const writeLocalData = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+const getLocalPin = () => localStorage.getItem(LOCAL_PIN_KEY) || '';
+const setLocalPin = (pin) => localStorage.setItem(LOCAL_PIN_KEY, pin);
+const clearLocalPin = () => localStorage.removeItem(LOCAL_PIN_KEY);
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('auth_token') || '');
@@ -61,10 +77,12 @@ export default function App() {
   }, [isAuthenticated]);
 
   const checkPinStatus = async () => {
-    if (isOffline) {
-      setIsPinSetup(true);
-      const cachedB = localStorage.getItem('bookings_cache');
-      const cachedP = localStorage.getItem('properties_cache');
+    const localPin = getLocalPin();
+    const cachedB = localStorage.getItem('bookings_cache');
+    const cachedP = localStorage.getItem('properties_cache');
+
+    if (isOffline || !navigator.onLine) {
+      setIsPinSetup(Boolean(localPin || cachedB || cachedP));
       if (cachedB) setBookings(JSON.parse(cachedB));
       if (cachedP) setProperties(JSON.parse(cachedP));
       return;
@@ -78,13 +96,15 @@ export default function App() {
       const data = await res.json();
       setIsPinSetup(data.isSetup);
     } catch (e) {
-      console.error(e);
-      setIsPinSetup(true);
+      console.error('Auth status fallback to local mode:', e);
+      setIsPinSetup(Boolean(localPin || cachedB || cachedP || true));
+      if (cachedB) setBookings(JSON.parse(cachedB));
+      if (cachedP) setProperties(JSON.parse(cachedP));
     }
   };
 
   const fetchProperties = async () => {
-    if (isOffline) {
+    if (isOffline || !navigator.onLine) {
       const cached = localStorage.getItem('properties_cache');
       if (cached) setProperties(JSON.parse(cached));
       return;
@@ -106,7 +126,7 @@ export default function App() {
   };
 
   const fetchBookings = async () => {
-    if (isOffline) {
+    if (isOffline || !navigator.onLine) {
       const cached = localStorage.getItem('bookings_cache');
       if (cached) {
         setBookings(JSON.parse(cached));
@@ -136,6 +156,10 @@ export default function App() {
   };
 
   const syncOfflineQueue = async () => {
+    if (!token || token === 'local-mode') {
+      return;
+    }
+
     const queue = JSON.parse(localStorage.getItem('booking_sync_queue') || '[]');
     if (queue.length === 0) return;
 
@@ -172,7 +196,9 @@ export default function App() {
   // 2. PIN login & Setup handlers
   const submitLogin = async (codeToSubmit = pinCode) => {
     if (!codeToSubmit) return;
-    
+
+    const localPin = getLocalPin();
+
     try {
       const res = await fetch(`${API_BASE}/login`, {
         method: 'POST',
@@ -185,16 +211,21 @@ export default function App() {
         setToken(data.token);
         setIsAuthenticated(true);
         setPinCode('');
-      } else {
-        setLoginError(data.error || 'Incorrect PIN code.');
-        setPinCode('');
+        return;
       }
+      setLoginError(data.error || 'Incorrect PIN code.');
+      setPinCode('');
     } catch (e) {
-      setLoginError('Server connection error. Logging in offline...');
-      if (localStorage.getItem('auth_token')) {
+      if (localPin && codeToSubmit === localPin) {
+        localStorage.setItem('auth_token', 'local-mode');
+        setToken('local-mode');
         setIsAuthenticated(true);
         setPinCode('');
+        return;
       }
+
+      setLoginError('Server connection error. Local PIN not matched.');
+      setPinCode('');
     }
   };
 
@@ -207,6 +238,8 @@ export default function App() {
     if (setupPin.length < 4 || setupPin.length > 6 || isNaN(Number(setupPin))) {
       return setSetupError('PIN must be a 4 to 6 digit number.');
     }
+
+    setLocalPin(setupPin);
 
     try {
       const res = await fetch(`${API_BASE}/setup-pin`, {
@@ -222,7 +255,8 @@ export default function App() {
         setSetupError(data.error || 'PIN configuration failed.');
       }
     } catch (err) {
-      setSetupError('Server connection error.');
+      setIsPinSetup(true);
+      alert('Backend unavailable. Local static mode is active.');
     }
   };
 
@@ -234,24 +268,31 @@ export default function App() {
 
   // 3. Booking list changes (add, update, delete)
   const handleBookingCreated = async (newBooking) => {
-    setBookings(prev => [newBooking, ...prev]);
+    const nextBookings = [newBooking, ...bookings];
+    setBookings(nextBookings);
+    writeLocalData('bookings_cache', nextBookings);
     setCurrentTab('dashboard');
-    if (navigator.onLine && token) {
+    if (navigator.onLine && token && token !== 'local-mode') {
       await fetchBookings();
     }
   };
 
   const handleUpdateBooking = async (updatedBooking) => {
-    setBookings(prev => prev.map(b => b.bookingId === updatedBooking.bookingId ? updatedBooking : b));
+    const nextBookings = bookings.map(b => b.bookingId === updatedBooking.bookingId ? updatedBooking : b);
+    setBookings(nextBookings);
+    writeLocalData('bookings_cache', nextBookings);
     setSelectedBooking(updatedBooking);
-    if (navigator.onLine && token) {
+    if (navigator.onLine && token && token !== 'local-mode') {
       await fetchBookings();
     }
   };
 
   const handleDeleteBooking = async (bookingId) => {
-    if (isOffline) {
-      alert('Delete actions are disabled while offline.');
+    if (isOffline || !navigator.onLine || token === 'local-mode') {
+      const nextBookings = bookings.filter(b => b.bookingId !== bookingId);
+      setBookings(nextBookings);
+      writeLocalData('bookings_cache', nextBookings);
+      setSelectedBooking(null);
       return;
     }
 

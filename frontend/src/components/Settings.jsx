@@ -26,6 +26,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
   const [globalMute, setGlobalMute] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
+  const notificationsPaused = true;
 
   const [exportMessage, setExportMessage] = useState({ type: '', text: '' });
 
@@ -42,11 +43,9 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
   const [propertyMessage, setPropertyMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    // Check if service worker & push notifications are supported
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      setPushSupported(true);
-      checkPushSubscription();
-    }
+    // Push notifications are intentionally paused for the static cPanel deployment path.
+    setPushSupported(false);
+    setPushEnabled(false);
     fetchSettings();
     fetchProperties();
   }, []);
@@ -117,12 +116,16 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
   };
 
   const handlePushToggle = async () => {
+    if (notificationsPaused) {
+      alert('Push notifications are temporarily paused for this static deployment. They will be re-enabled later when a backend is available.');
+      return;
+    }
+
     if (!pushSupported) return;
 
     try {
       const reg = await navigator.serviceWorker.ready;
       if (pushEnabled) {
-        // Unsubscribe
         const sub = await reg.pushManager.getSubscription();
         if (sub) {
           await sub.unsubscribe();
@@ -137,7 +140,6 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
         }
         setPushEnabled(false);
       } else {
-        // Request Permissions & Subscribe
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
           alert('Notification permissions were denied.');
@@ -503,27 +505,22 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
           />
         </div>
 
-        {pushSupported ? (
-          <div className="form-group" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <label style={{ fontSize: '0.95rem', fontWeight: '600' }}>Web Push Notifications</label>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                {pushEnabled ? 'Subscribed on this device.' : 'Receive 3-day pre-arrival alerts.'}
-              </p>
-            </div>
-            <button 
-              onClick={handlePushToggle} 
-              className={`btn ${pushEnabled ? 'btn-rose' : 'btn-teal'}`}
-              style={{ width: 'auto', padding: '8px 14px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
-            >
-              {pushEnabled ? 'Disable' : 'Enable'}
-            </button>
+        <div className="form-group" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <label style={{ fontSize: '0.95rem', fontWeight: '600' }}>Web Push Notifications</label>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              Temporarily paused for the static deployment build. Re-enable later when the backend is available.
+            </p>
           </div>
-        ) : (
-          <p style={{ fontSize: '0.8rem', color: 'var(--accent-rose)' }}>
-            ⚠️ Web Push is not supported in this browser. Use Chrome/Safari on mobile.
-          </p>
-        )}
+          <button
+            onClick={handlePushToggle}
+            className="btn btn-secondary"
+            disabled={true}
+            style={{ width: 'auto', padding: '8px 14px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
+          >
+            Paused
+          </button>
+        </div>
       </div>
 
       {/* SECTION 4: SECURITY & PIN CHANGE */}
