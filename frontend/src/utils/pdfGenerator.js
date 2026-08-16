@@ -45,7 +45,8 @@ export function generateBookingPDF(booking) {
 
   // Logo Treatment: Add 200:119 ratio black logo image asset
   try {
-    doc.addImage('/logo.png', 'PNG', 155, 8, 40, 23.8); // 40mm width * 119/200 = 23.8mm height
+    const logoPath = typeof window !== 'undefined' ? new URL('../assets/logo.png', window.location.href).href : '/logo.png';
+    doc.addImage(logoPath, 'PNG', 155, 8, 40, 23.8); // 40mm width * 119/200 = 23.8mm height
   } catch (e) {
     // Fallback if image fails to load: Draw stylized black outline
     doc.setDrawColor(0, 0, 0);

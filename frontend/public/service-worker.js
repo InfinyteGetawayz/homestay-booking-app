@@ -1,12 +1,11 @@
 const CACHE_NAME = 'infinite-getaways-v1';
 // Service worker runs in worker context — avoid import.meta and window APIs here.
-const base = '/';
+const base = self.registration.scope || '/';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icon-192.png',
-  '/icon-512.png'
+  new URL('./index.html', base).pathname,
+  new URL('./manifest.webmanifest', base).pathname,
+  new URL('./icon-192.png', base).pathname,
+  new URL('./icon-512.png', base).pathname
 ];
 
 // Install: Cache core static assets
@@ -40,7 +39,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // Do not intercept API requests - let the frontend handle offline fallback for data
-  if (url.pathname.startsWith('/api/')) {
+  if (url.pathname.includes('/api/')) {
     return;
   }
 
@@ -109,15 +108,14 @@ self.addEventListener('notificationclick', event => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      // Focus if window already open
+      const targetUrl = new URL(base).pathname || '/';
       for (const client of clientList) {
-        if (client.url === '/' && 'focus' in client) {
+        if (client.url.includes(targetUrl) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise open new window
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/');
+        return self.clients.openWindow(targetUrl);
       }
     })
   );

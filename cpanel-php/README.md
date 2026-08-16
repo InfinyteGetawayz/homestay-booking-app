@@ -4,23 +4,37 @@ This folder is prepared for a cPanel deployment that replaces the Node/Postgres 
 
 ## Upload layout
 
-- Upload the contents of `cpanel-php/api` to your cPanel account under a folder such as:
-  - `public_html/api`
-- Upload the built frontend bundle from `frontend/dist` to the site root, such as:
-  - `public_html`
+For your case, keep the app inside a subfolder such as:
 
-## Recommended .htaccess in public_html
+- `public_html/booking-app`
+- `public_html/booking-app/api`
+
+Upload the built frontend bundle from `frontend/dist` into:
+
+- `public_html/booking-app`
+
+Upload the contents of `cpanel-php/api` into:
+
+- `public_html/booking-app/api`
+
+This keeps the app working under a subfolder like `/booking-app` instead of assuming the site root.
+
+## Recommended .htaccess in the app folder
+
+If your app sits under `/booking-app`, place this in `public_html/booking-app/.htaccess`:
 
 ```apache
 RewriteEngine On
 
-# Serve frontend for normal routes
-RewriteCond %{REQUEST_URI} !^/api/ [NC]
-RewriteCond %{REQUEST_URI} !^/api$ [NC]
+# Serve frontend for normal SPA routes
+RewriteCond %{REQUEST_URI} !^/booking-app/api/ [NC]
+RewriteCond %{REQUEST_URI} !^/booking-app/api$ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
 ```
 
-If you want to keep the API separate, make sure the API folder is mounted at `/api` and uses the included `/api/.htaccess` rewrite file.
+The API folder already contains its own `.htaccess` file and will handle `/booking-app/api/*` requests.
 
 ## Database setup
 

@@ -47,7 +47,7 @@ export default function App() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const base = import.meta.env.BASE_URL || '/';
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '/') || '/';
 
   // 1. Initial Checks: auth status, offline listeners, and properties loading
   useEffect(() => {

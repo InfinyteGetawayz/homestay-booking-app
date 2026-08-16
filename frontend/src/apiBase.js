@@ -20,13 +20,15 @@ const inferBaseFromLocation = (location) => {
   const segments = pathname.split('/').filter(Boolean);
   const knownRoutes = new Set(['dashboard', 'calendar', 'add', 'settings', 'bookings', 'properties', 'login', 'setup', 'auth-status', 'export-csv', 'backups', 'vapid-key', 'subscribe', 'unsubscribe']);
 
+  const appPrefix = segments.length > 0 && !segments[0].toLowerCase().startsWith('api') ? `/${segments[0]}` : '';
+
   if (segments.length > 1 && knownRoutes.has(segments[segments.length - 1].toLowerCase())) {
     const prefix = segments.slice(0, -1).join('/');
     return prefix ? `/${prefix}/api` : '/api';
   }
 
-  if (segments.length > 0 && !segments[0].toLowerCase().startsWith('api')) {
-    return `/${segments[0]}/api`;
+  if (appPrefix) {
+    return `${appPrefix}/api`;
   }
 
   return '/api';
@@ -38,7 +40,7 @@ export const resolveApiBase = (env = import.meta.env, location = typeof window !
   }
 
   if (env?.BASE_URL && env.BASE_URL !== '/') {
-    return '/api';
+    return env.BASE_URL.endsWith('/') ? `${env.BASE_URL}api` : `${env.BASE_URL}/api`;
   }
 
   return inferBaseFromLocation(location);
