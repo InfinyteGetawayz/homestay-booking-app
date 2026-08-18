@@ -1,0 +1,10 @@
+RewriteEngine On
+RewriteBase /booking-app/
+
+# Do not rewrite the API folder to the frontend
+RewriteCond %{REQUEST_URI} !^/booking-app/api/ [NC]
+RewriteCond %{REQUEST_URI} !^/booking-app/api$ [NC]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]

@@ -4,8 +4,10 @@ require __DIR__ . '/config.php';
 ensureSchema();
 
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
-$uri = parse_url($uri, PHP_URL_PATH);
-$path = preg_replace('#^/api#', '', $uri);
+$uri = parse_url($uri, PHP_URL_PATH) ?: '/';
+$apiBase = dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php');
+$path = preg_replace('#^' . preg_quote($apiBase, '#') . '#', '', $uri);
+$path = preg_replace('#^/api#', '', $path);
 $path = rtrim($path, '/');
 if ($path === '') {
     $path = '/';
