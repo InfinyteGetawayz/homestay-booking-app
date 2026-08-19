@@ -171,6 +171,10 @@ switch ($path) {
             $bookingId = generateBookingId($roomSelection);
             $mysqli = dbConnect();
             $stmt = $mysqli->prepare('INSERT INTO bookings (booking_id, guest_name, mobile_number, booking_date, type_of_booking, per_adult_tariff, per_child_tariff, number_adults, number_children_5_plus, number_children_under_5, check_in_date, check_out_date, advance_amount, room_selection, food_preference, dietary_restrictions, special_request, communication_transport, b2b_agency_name, settlement, payment_status, muted_reminders, created_at, total_nights, total_pax, total_adult_tariff, total_child_tariff, final_tariff, pending_amount, fooding_total, lodging_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?)');
+            if (!$stmt) {
+                $mysqli->close();
+                jsonResponse(['error' => 'Failed to prepare booking insert.'], 500);
+            }
             $guestName = (string) ($payload['guestName'] ?? '');
             $mobileNumber = (string) ($payload['mobileNumber'] ?? '');
             $bookingDate = $payload['bookingDate'] ?? date('Y-m-d');
@@ -199,7 +203,7 @@ switch ($path) {
             $pendingAmount = $computed['pendingAmount'];
             $foodingTotal = $computed['foodingTotal'];
             $lodgingTotal = $computed['lodgingTotal'];
-            $stmt->bind_param('sssssdiiiiissssssssiiiddddd',
+            $stmt->bind_param('sssssddiiissdssssssssiiidddddd',
                 $bookingId,
                 $guestName,
                 $mobileNumber,
@@ -231,7 +235,13 @@ switch ($path) {
                 $foodingTotal,
                 $lodgingTotal
             );
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                $error = $stmt->error;
+                $stmt->close();
+                $mysqli->close();
+                error_log('Booking insert failed: ' . $error);
+                jsonResponse(['error' => 'Failed to save booking.'], 500);
+            }
             $stmt->close();
             $mysqli->close();
             jsonResponse(['bookingId' => $bookingId, 'success' => true], 201);
