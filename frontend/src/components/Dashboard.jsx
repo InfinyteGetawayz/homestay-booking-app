@@ -51,8 +51,8 @@ export default function Dashboard({ bookings = [], properties = [], token, onSel
     return bookings.filter(b => {
       // 1. Search Query (name or mobile)
       const matchesSearch = 
-        b.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.mobileNumber.includes(searchQuery);
+        String(b.guestName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(b.mobileNumber || '').includes(searchQuery);
 
       // 2. Property Filter
       const prefix = b.bookingId ? b.bookingId.substring(0, 3) : 'KGH';
@@ -111,7 +111,7 @@ export default function Dashboard({ bookings = [], properties = [], token, onSel
     // Monthly revenue (sum finalTariff for check-in in the current month)
     const currentMonthPrefix = new Date().toISOString().substring(0, 7); // "YYYY-MM"
     const monthlyRev = bookings
-      .filter(b => b.checkInDate.startsWith(currentMonthPrefix) && b.paymentStatus !== 'No Show')
+      .filter(b => String(b.checkInDate || '').startsWith(currentMonthPrefix) && b.paymentStatus !== 'No Show')
       .reduce((sum, b) => sum + (b.finalTariff || 0), 0);
 
     return { total, completed, pending, noShow, monthlyRev };

@@ -243,8 +243,10 @@ switch ($path) {
                 jsonResponse(['error' => 'Failed to save booking.'], 500);
             }
             $stmt->close();
+            $result = $mysqli->query("SELECT * FROM bookings WHERE booking_id = '" . $mysqli->real_escape_string($bookingId) . "' LIMIT 1");
+            $createdBooking = $result ? $result->fetch_assoc() : null;
             $mysqli->close();
-            jsonResponse(['bookingId' => $bookingId, 'success' => true], 201);
+            jsonResponse($createdBooking ? normalizeBooking($createdBooking) : ['bookingId' => $bookingId, 'success' => true], 201);
         }
         break;
 
