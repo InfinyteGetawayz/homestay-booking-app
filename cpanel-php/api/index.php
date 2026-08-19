@@ -118,7 +118,7 @@ switch ($path) {
         }
         break;
 
-    case preg_match('#^/properties/([^/]+)$#', $path, $matches) ? '/properties/:id' : '' :
+    case preg_match('#^/properties/([^/]+)$#', $path, $matches) ? $path : '' :
         if ($method === 'DELETE') {
             requireAuth();
             $id = $matches[1];
@@ -132,7 +132,7 @@ switch ($path) {
         }
         break;
 
-    case preg_match('#^/properties/([^/]+)/rooms$#', $path, $matches) ? '/properties/:id/rooms' : '' :
+    case preg_match('#^/properties/([^/]+)/rooms$#', $path, $matches) ? $path : '' :
         if ($method === 'POST') {
             requireAuth();
             $id = $matches[1];
@@ -250,7 +250,7 @@ switch ($path) {
         }
         break;
 
-    case preg_match('#^/bookings/([^/]+)$#', $path, $matches) ? '/bookings/:id' : '' :
+    case preg_match('#^/bookings/([^/]+)$#', $path, $matches) ? $path : '' :
         requireAuth();
         $id = $matches[1];
         if ($method === 'PUT') {
@@ -343,7 +343,7 @@ switch ($path) {
         }
         break;
 
-    case preg_match('#^/expenses/([^/]+)$#', $path, $matches) ? '/expenses/:id' : '' :
+    case preg_match('#^/expenses/([^/]+)$#', $path, $matches) ? $path : '' :
         requireAuth();
         $id = $matches[1];
         if ($method === 'DELETE') {
