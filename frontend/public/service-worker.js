@@ -86,8 +86,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body: data.body,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: new URL('./icon-192.png', base).pathname,
+    badge: new URL('./icon-192.png', base).pathname,
     data: {
       bookingId: data.bookingId
     },

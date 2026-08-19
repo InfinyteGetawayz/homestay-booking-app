@@ -7,8 +7,9 @@
     <meta name="description" content="Booking and Tariff management tool for Kanchan Ghar (KGH) and Mungpoo Bliss (MBH) Homestays" />
     
     <!-- PWA Settings -->
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#111827" />
@@ -20,12 +21,12 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="%BASE_URL%src/main.jsx"></script>
     <script>
       // Service worker registration for PWA
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
+          navigator.serviceWorker.register('%BASE_URL%service-worker.js', { scope: '%BASE_URL%' })
             .then(reg => console.log('Service Worker registered successfully:', reg.scope))
             .catch(err => console.log('Service Worker registration failed:', err));
         });
