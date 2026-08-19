@@ -86,10 +86,12 @@ function writeConfigValue($key, $value) {
 }
 
 function getBearerToken() {
-    if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
+    $header = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? ($_SERVER['Authorization'] ?? null);
+    if (!$header) {
         return null;
     }
-    $header = $_SERVER['HTTP_AUTHORIZATION'];
     if (stripos($header, 'Bearer ') !== 0) {
         return null;
     }

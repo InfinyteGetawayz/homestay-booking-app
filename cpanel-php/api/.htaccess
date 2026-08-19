@@ -1,5 +1,8 @@
 RewriteEngine On
 RewriteBase /booking-app/api/
 
+# Preserve Bearer tokens when Apache runs PHP through CGI/FastCGI
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 RewriteRule ^ index.php [L,QSA]
 RewriteRule ^(.+)$ index.php [L,QSA]
