@@ -34,9 +34,13 @@ function ensureSchema() {
     $mysqli = dbConnect();
     $sql = file_get_contents(__DIR__ . '/../db/schema.sql');
     if ($sql === false) {
+        $mysqli->close();
         return;
     }
-    $mysqli->multi_query($sql);
+    if (!$mysqli->multi_query($sql)) {
+        $mysqli->close();
+        return;
+    }
     while ($mysqli->more_results()) {
         $mysqli->next_result();
     }

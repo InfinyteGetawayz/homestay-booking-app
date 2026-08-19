@@ -56,9 +56,9 @@ CREATE TABLE IF NOT EXISTS bookings (
 INSERT INTO app_config (`key`, `value`) VALUES
   ('pin_hash', ''),
   ('globalMuteReminders', '0')
-ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
+ON DUPLICATE KEY UPDATE `key` = `key`;
 
 INSERT INTO properties (id, name, rooms) VALUES
   ('KGH', 'Kanchan Ghar Homestay', JSON_ARRAY('R1', 'R2', 'R3', 'L1')),
   ('MBH', 'Mungpoo Bliss Homestay', JSON_ARRAY('FR', 'FL', 'BL', 'BR'))
-ON DUPLICATE KEY UPDATE name = VALUES(name), rooms = VALUES(rooms);
+ON DUPLICATE KEY UPDATE id = id;
