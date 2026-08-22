@@ -40,6 +40,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
   // Room Configuration States
   const [selectedPropId, setSelectedPropId] = useState('');
   const [roomConfigString, setRoomConfigString] = useState('');
+  const [propertyLogo, setPropertyLogo] = useState('');
   const [propertyMessage, setPropertyMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
       if (data.length > 0 && !selectedPropId) {
         setSelectedPropId(data[0].id);
         setRoomConfigString(data[0].rooms.join(', '));
+        setPropertyLogo(data[0].logo || '');
       }
     } catch (e) {
       console.error('Failed to fetch properties:', e);
@@ -278,6 +280,37 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     const prop = properties.find(p => p.id === propId);
     if (prop) {
       setRoomConfigString(prop.rooms.join(', '));
+      setPropertyLogo(prop.logo || '');
+    }
+  };
+
+  const handleLogoSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPropertyMessage({ type: 'error', text: 'Please select an image file.' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPropertyLogo(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveLogo = async () => {
+    const prop = properties.find(p => p.id === selectedPropId);
+    if (!prop || !propertyLogo) return;
+    try {
+      const res = await fetch(`${API_BASE}/properties`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ id: prop.id, name: prop.name, rooms: prop.rooms, logo: propertyLogo })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save logo.');
+      setPropertyMessage({ type: 'success', text: 'Homestay logo saved successfully!' });
+      fetchProperties();
+    } catch (err) {
+      setPropertyMessage({ type: 'error', text: err.message || 'Server connection error.' });
     }
   };
 
@@ -480,6 +513,13 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
 
             <button type="submit" className="btn btn-primary" style={{ padding: '8px', fontSize: '0.85rem' }}>
               Save Room Configuration
+            </button>
+
+            <label>Homestay Logo</label>
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} />
+            {propertyLogo && <img src={propertyLogo} alt="Selected homestay logo" style={{ maxWidth: '180px', maxHeight: '80px', objectFit: 'contain' }} />}
+            <button type="button" onClick={handleSaveLogo} className="btn btn-secondary" style={{ padding: '8px', fontSize: '0.85rem' }}>
+              Save Homestay Logo
             </button>
           </form>
         )}

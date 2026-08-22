@@ -118,7 +118,7 @@ export default function CalendarScreen({ bookings = [], properties = [] }) {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid var(--border-color)', minWidth: '70px', position: 'sticky', left: 0, background: '#ffffff', zIndex: 10 }}>
+                        <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid var(--border-color)', minWidth: '110px', width: '110px', position: 'sticky', left: 0, background: '#ffffff', zIndex: 20 }}>
                           Rooms
                         </th>
                         {daysArray.map(day => (
@@ -143,7 +143,8 @@ export default function CalendarScreen({ bookings = [], properties = [] }) {
                                 textTransform: 'uppercase',
                                 position: 'sticky', 
                                 left: 0,
-                                background: '#f3f4f6'
+                                background: '#f3f4f6',
+                                zIndex: 15
                               }}
                             >
                               {prop.name}
@@ -161,7 +162,10 @@ export default function CalendarScreen({ bookings = [], properties = [] }) {
                                   position: 'sticky', 
                                   left: 0, 
                                   background: '#ffffff',
-                                  borderRight: '1px solid var(--border-color)'
+                                  borderRight: '1px solid var(--border-color)',
+                                  minWidth: '110px',
+                                  width: '110px',
+                                  zIndex: 15
                                 }}
                               >
                                 {room}

@@ -94,6 +94,7 @@ switch ($path) {
                     'id' => $row['id'],
                     'name' => $row['name'],
                     'rooms' => json_decode($row['rooms'], true) ?: [],
+                    'logo' => $row['logo'] ?? null,
                 ];
             }
             $mysqli->close();
@@ -104,17 +105,23 @@ switch ($path) {
             $id = trim((string) ($body['id'] ?? ''));
             $name = trim((string) ($body['name'] ?? ''));
             $rooms = $body['rooms'] ?? [];
+            $logo = $body['logo'] ?? null;
             if ($id === '' || $name === '' || !is_array($rooms)) {
                 jsonResponse(['error' => 'Invalid property configuration.'], 400);
             }
             $mysqli = dbConnect();
-            $stmt = $mysqli->prepare('INSERT INTO properties (id, name, rooms) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), rooms = VALUES(rooms)');
+            $stmt = $mysqli->prepare('INSERT INTO properties (id, name, rooms, logo) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), rooms = VALUES(rooms), logo = COALESCE(VALUES(logo), logo)');
             $jsonRooms = json_encode(array_values($rooms), JSON_UNESCAPED_SLASHES);
-            $stmt->bind_param('sss', $id, $name, $jsonRooms);
+            $stmt->bind_param('ssss', $id, $name, $jsonRooms, $logo);
             $stmt->execute();
             $stmt->close();
+            $result = $mysqli->query('SELECT * FROM properties ORDER BY name ASC');
+            $updatedProperties = [];
+            while ($row = $result->fetch_assoc()) {
+                $updatedProperties[] = ['id' => $row['id'], 'name' => $row['name'], 'rooms' => json_decode($row['rooms'], true) ?: [], 'logo' => $row['logo'] ?? null];
+            }
             $mysqli->close();
-            jsonResponse(['success' => true, 'properties' => []], 201);
+            jsonResponse(['success' => true, 'properties' => $updatedProperties], 201);
         }
         break;
 
@@ -254,7 +261,17 @@ switch ($path) {
         requireAuth();
         $id = $matches[1];
         if ($method === 'PUT') {
-            $payload = $body;
+            $lookup = dbConnect();
+            $existingStmt = $lookup->prepare('SELECT * FROM bookings WHERE booking_id = ? LIMIT 1');
+            $existingStmt->bind_param('s', $id);
+            $existingStmt->execute();
+            $existingRow = $existingStmt->get_result()->fetch_assoc();
+            $existingStmt->close();
+            $lookup->close();
+            if (!$existingRow) {
+                jsonResponse(['error' => 'Booking not found.'], 404);
+            }
+            $payload = array_merge(normalizeBooking($existingRow), $body);
             $computed = computeBookingFields($payload);
             $mysqli = dbConnect();
             $stmt = $mysqli->prepare('UPDATE bookings SET guest_name = ?, mobile_number = ?, booking_date = ?, type_of_booking = ?, per_adult_tariff = ?, per_child_tariff = ?, number_adults = ?, number_children_5_plus = ?, number_children_under_5 = ?, check_in_date = ?, check_out_date = ?, advance_amount = ?, room_selection = ?, food_preference = ?, dietary_restrictions = ?, special_request = ?, communication_transport = ?, b2b_agency_name = ?, settlement = ?, payment_status = ?, muted_reminders = ?, total_nights = ?, total_pax = ?, total_adult_tariff = ?, total_child_tariff = ?, final_tariff = ?, pending_amount = ?, fooding_total = ?, lodging_total = ? WHERE booking_id = ?');
@@ -367,21 +384,42 @@ switch ($path) {
         }
         $mysqli->close();
 
-        $header = ['bookingId','guestName','mobileNumber','typeOfBooking','checkInDate','checkOutDate','roomSelection','finalTariff','advanceAmount','pendingAmount'];
+        $header = ['Guest Names','ID Type','Mobile','Booked On','Type','PP Adult','PP Child','Adults','Kids','<5yrs','Check In','Check Out','Advance','R1','R2','R3','L1','Nights','Pax','Total Tariff Adult','Total Tariff Kids','Pending','Final Tariff','Settlement','Status','Lodging Total','Fooding Total','Agency Name if B2B','Driver Count','Referred By','Special Request'];
         $csv = fopen('php://temp', 'r+');
         fputcsv($csv, $header);
         foreach ($rows as $booking) {
             fputcsv($csv, [
-                $booking['bookingId'],
                 $booking['guestName'],
+                '',
                 $booking['mobileNumber'],
+                $booking['bookingDate'],
                 $booking['typeOfBooking'],
+                $booking['perAdultTariff'],
+                $booking['perChildTariff'],
+                $booking['numberAdults'],
+                $booking['numberChildren5Plus'],
+                $booking['numberChildrenUnder5'],
                 $booking['checkInDate'],
                 $booking['checkOutDate'],
-                $booking['roomSelection'],
-                $booking['finalTariff'],
                 $booking['advanceAmount'],
+                in_array('Talung', array_map('trim', explode(',', $booking['roomSelection'])), true) || in_array('R1', array_map('trim', explode(',', $booking['roomSelection'])), true) ? 'TRUE' : 'FALSE',
+                in_array('Pandim', array_map('trim', explode(',', $booking['roomSelection'])), true) || in_array('R2', array_map('trim', explode(',', $booking['roomSelection'])), true) ? 'TRUE' : 'FALSE',
+                in_array('Kabru', array_map('trim', explode(',', $booking['roomSelection'])), true) || in_array('R3', array_map('trim', explode(',', $booking['roomSelection'])), true) ? 'TRUE' : 'FALSE',
+                in_array('Teesta', array_map('trim', explode(',', $booking['roomSelection'])), true) || in_array('L1', array_map('trim', explode(',', $booking['roomSelection'])), true) ? 'TRUE' : 'FALSE',
+                $booking['totalNights'],
+                $booking['totalPax'],
+                $booking['totalAdultTariff'],
+                $booking['totalChildTariff'],
                 $booking['pendingAmount'],
+                $booking['finalTariff'],
+                $booking['settlement'],
+                $booking['paymentStatus'],
+                $booking['lodgingTotal'],
+                $booking['foodingTotal'],
+                $booking['b2bAgencyName'],
+                '',
+                '',
+                $booking['specialRequest'],
             ]);
         }
         rewind($csv);

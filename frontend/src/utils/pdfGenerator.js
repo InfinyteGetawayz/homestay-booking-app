@@ -1,6 +1,12 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
+function findBookingProperty(booking) {
+  const properties = JSON.parse(localStorage.getItem('properties_cache') || '[]');
+  const rooms = String(booking.roomSelection || '').split(',').map(room => room.trim());
+  return properties.find(property => rooms.some(room => property.rooms?.includes(room))) || properties[0];
+}
+
 export function generateBookingPDF(booking) {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -9,9 +15,8 @@ export function generateBookingPDF(booking) {
   });
 
   // Dynamic property lookup from LocalStorage
-  const cachedProperties = JSON.parse(localStorage.getItem('properties_cache') || '[]');
+  const matchedProp = findBookingProperty(booking);
   const prefix = booking.bookingId ? booking.bookingId.substring(0, 3) : 'KGH';
-  const matchedProp = cachedProperties.find(p => p.id === prefix);
   const homestayName = matchedProp 
     ? matchedProp.name 
     : (prefix === 'KGH' ? 'Kanchan Ghar Homestay' : 'Mungpoo Bliss Homestay');
@@ -45,8 +50,9 @@ export function generateBookingPDF(booking) {
 
   // Logo Treatment: Add 200:119 ratio black logo image asset
   try {
-    const logoPath = typeof window !== 'undefined' ? new URL('../assets/logo.png', window.location.href).href : '/logo.png';
-    doc.addImage(logoPath, 'PNG', 155, 8, 40, 23.8); // 40mm width * 119/200 = 23.8mm height
+    if (matchedProp?.logo) {
+      doc.addImage(matchedProp.logo, undefined, 155, 6, 40, 27);
+    }
   } catch (e) {
     // Fallback if image fails to load: Draw stylized black outline
     doc.setDrawColor(0, 0, 0);
@@ -54,7 +60,7 @@ export function generateBookingPDF(booking) {
     doc.rect(155, 8, 40, 23.8);
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('LOGO PLACEHOLDER', 158, 20);
+    doc.text('LOGO UNAVAILABLE', 158, 20);
   }
 
   // Booking Reference Heading

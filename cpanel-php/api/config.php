@@ -188,6 +188,11 @@ function computeBookingFields(array $data): array {
     $foodingTotal = $totalAdultTariff * 0.45;
     $lodgingTotal = $finalTariff - $foodingTotal;
 
+    if (($data['paymentStatus'] ?? $data['payment_status'] ?? '') === 'No Show') {
+        $lodgingTotal = $finalTariff;
+        $foodingTotal = 0;
+    }
+
     return [
         'totalNights' => $totalNights,
         'totalPax' => $totalPax,
