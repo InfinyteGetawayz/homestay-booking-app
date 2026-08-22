@@ -45,3 +45,10 @@ INSERT INTO bookings (booking_id, guest_name, mobile_number, booking_date, type_
 ('IMP-0040','Goutam Ghosh','9832888556','2026-08-14','B2C',1350,0,2,0,0,'2026-08-28','2026-08-30',1500,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',2,2,5400,0,5400,3900,3800,1600);
 COMMIT;
 -- Imported rows: 40
+
+-- Rename imported room codes to the current room names.
+UPDATE bookings
+SET room_selection = REPLACE(REPLACE(REPLACE(REPLACE(room_selection, 'R1', 'Talung'), 'R2', 'Pandim'), 'R3', 'Kabru'), 'L1', 'Teesta');
+UPDATE properties
+SET rooms = JSON_ARRAY('Talung', 'Pandim', 'Kabru', 'Teesta')
+WHERE id = 'KGH';

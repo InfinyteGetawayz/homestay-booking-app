@@ -472,7 +472,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
                 className="form-control" 
                 value={roomConfigString}
                 onChange={e => setRoomConfigString(e.target.value)}
-                placeholder="e.g. R1, R2, R3, L1"
+                placeholder="e.g. Talung, Pandim, Kabru, Teesta"
                 required
               />
               <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Separate each room label with a comma.</p>

@@ -59,6 +59,6 @@ INSERT INTO app_config (`key`, `value`) VALUES
 ON DUPLICATE KEY UPDATE `key` = `key`;
 
 INSERT INTO properties (id, name, rooms) VALUES
-  ('KGH', 'Kanchan Ghar Homestay', JSON_ARRAY('R1', 'R2', 'R3', 'L1')),
+  ('KGH', 'Kanchan Ghar Homestay', JSON_ARRAY('Talung', 'Pandim', 'Kabru', 'Teesta')),
   ('MBH', 'Mungpoo Bliss Homestay', JSON_ARRAY('FR', 'FL', 'BL', 'BR'))
 ON DUPLICATE KEY UPDATE id = id;
