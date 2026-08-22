@@ -1,0 +1,47 @@
+-- Generated from Booking Management-Dummy.csv
+-- This replaces bookings only; app_config, properties, and expenses remain unchanged.
+START TRANSACTION;
+DELETE FROM bookings;
+INSERT INTO bookings (booking_id, guest_name, mobile_number, booking_date, type_of_booking, per_adult_tariff, per_child_tariff, number_adults, number_children_5_plus, number_children_under_5, check_in_date, check_out_date, advance_amount, room_selection, food_preference, dietary_restrictions, special_request, communication_transport, b2b_agency_name, settlement, payment_status, total_nights, total_pax, total_adult_tariff, total_child_tariff, final_tariff, pending_amount, lodging_total, fooding_total) VALUES
+('IMP-0001','Soumen Choudhury','8637085759','2025-11-28','B2C',1300,0,2,0,0,'2026-01-23','2026-01-24',1500,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,2,2600,0,2600,0,1800,800),
+('IMP-0002','Subhojit Roy','9831599763','2025-12-07','B2C',1300,0,4,0,2,'2025-12-22','2025-12-25',2000,'R1, R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',3,4,15600,0,15600,0,10800,4800),
+('IMP-0003','Sagar Ram Ghosh','9434221050','2025-12-18','B2C',1350,0,4,0,0,'2025-12-20','2025-12-21',2000,'R1, R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,4,5400,0,5400,0,3800,1600),
+('IMP-0004','Me','7044715163','2025-12-23','REL',1000,500,5,1,0,'2025-12-29','2025-12-31',0,'R1, R2, R3','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,6,10000,1000,11000,0,6600,4400),
+('IMP-0005','Purusattam Basak',NULL,'2025-12-23','B2C',1000,0,4,0,2,'2025-12-26','2025-12-28',0,'R1, R3','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,4,8000,0,8000,0,4800,3200),
+('IMP-0006','Sujoy Ghosh','9382731974','2025-12-26','B2B',1000,0,2,0,0,'2025-12-26','2025-12-27',0,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,2,2000,0,2000,0,1200,800),
+('IMP-0007','Dipanwita Dasgupta','7384113681','2026-01-15','B2C',1200,0,2,0,0,'2026-01-24','2026-01-25',1000,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,2,2400,0,2400,0,1600,800),
+('IMP-0008','Aratrika Mondal','8582802782','2026-01-16','REL',1100,0,1,0,0,'2026-01-24','2026-01-25',0,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,1,1100,0,1100,0,700,400),
+('IMP-0009','Til Bahadur Gurung','9832423978','2026-01-22','B2C',1350,0,2,0,0,'2026-01-23','2026-01-25',1500,'R3','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,2,5400,0,5400,0,3800,1600),
+('IMP-0010','Soumi Sarkar','9836194610','2026-01-24','B2C',1350,0,2,0,0,'2026-01-25','2026-01-26',1000,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,2,2700,0,2700,0,1900,800),
+('IMP-0011','Soma Dutta Barman','9875547085','2026-03-14','B2C',1350,700,5,1,0,'2026-05-27','2026-05-30',8000,'R1, R2, R3','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',3,6,20250,2100,22350,0,15750,6600),
+('IMP-0012','Susmita Ganguly','8902617872','2026-03-16','B2C',1200,0,1,0,0,'2026-03-20','2026-03-23',3600,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',3,1,3600,0,3600,0,2400,1200),
+('IMP-0013','Subhasish Pal','9836220008','2026-03-20','B2C',1100,0,4,0,0,'2026-04-06','2026-04-07',1000,'L1','Veg',NULL,NULL,'To Be Arranged','Manish Ji','Yes','Completed',1,4,4400,0,4400,3400,2800,1600),
+('IMP-0014','Samiran Sarkar','9851114287','2026-03-20','B2C',1250,0,4,0,0,'2026-03-21','2026-03-22',1500,'L1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,4,5000,0,5000,0,3400,1600),
+('IMP-0015','Susmita Ganguly - Family','8902617872','2026-03-20','B2C',1033.333333,500,3,1,0,'2026-03-22','2026-03-23',0,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,4,3100,500,3600,3600,2200,1400),
+('IMP-0016','P Rudra','9830320797','2026-03-22','B2B',1100,550,2,1,0,'2026-03-27','2026-03-29',2500,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,3,4400,1100,5500,3000,3500,2000),
+('IMP-0017','Arindam Ash','9831392181','2026-06-03','B2B',1100,0,2,0,0,'2026-07-29','2026-07-31',1600,'R2','Veg',NULL,NULL,'To Be Arranged','Fusion Stays','Yes','No Show',2,2,4400,0,1600,0,1600,0),
+('IMP-0018','Pratima Barua','9831084890','2026-04-02','REL',1200,0,6,0,1,'2026-04-11','2026-04-13',3000,'R1, R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,6,14400,0,14400,0,9600,4800),
+('IMP-0019','Korak Banerjee','7278215978','2026-04-05','B2C',1200,0,9,0,0,'2026-05-25','2026-05-27',5000,'R1, R3, L1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,9,21600,0,21600,0,14400,7200),
+('IMP-0020','Pranay Biswas','8945518850','2026-04-07','B2C',1250,0,4,0,1,'2026-04-11','2026-04-13',2500,'L1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,4,10000,0,10000,7500,6800,3200),
+('IMP-0021','Sayantan Putatunda','9874671342','2026-04-21','B2C',1250,0,8,0,1,'2026-04-30','2026-05-03',5000,'R1, R2, R3','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',3,8,30000,0,30000,0,20400,9600),
+('IMP-0022','Subhabrata Sengupta','9339498681','2026-04-22','B2C',1350,0,7,0,0,'2026-10-22','2026-10-24',4500,'R1, L1','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',2,7,18900,0,18900,14400,13300,5600),
+('IMP-0023','Indrani Goswami','9874070988','2026-05-07','B2B',1100,0,6,0,0,'2026-05-23','2026-05-24',2400,'R1, R3','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,6,6600,0,6600,0,4200,2400),
+('IMP-0024','Tanujit Ghosh','9563751738','2026-05-08','B2C',1200,0,4,0,1,'2026-05-09','2026-05-11',2000,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,4,9600,0,9600,0,6400,3200),
+('IMP-0025','Kaustav Kumar','7278137450','2026-05-10','B2C',1250,0,2,0,1,'2026-05-16','2026-05-18',2000,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,2,5000,0,5000,0,3400,1600),
+('IMP-0026','INFLUENCER SANIYA',NULL,NULL,'Stay',0,0,0,0,0,'2026-06-26','2026-06-27',0,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,0,0,0,0,0,0,0),
+('IMP-0027','Biswajit Bhattacharya','9433143262','2026-05-15','B2C',1250,0,5,0,0,'2026-06-20','2026-06-22',3125,'R1, R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',2,5,12500,0,12500,0,8500,4000),
+('IMP-0028','Ankit Narone','7004190712','2026-05-20','B2C',1350,0,2,0,0,'2026-06-17','2026-06-20',1500,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',3,2,8100,0,8100,0,5700,2400),
+('IMP-0029','Moloy Nandy','7980427140','2026-05-28','B2C',1350,700,2,1,0,'2026-05-30','2026-05-31',2000,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,3,2700,700,3400,0,2400,1000),
+('IMP-0030','Rajarshi Nandi','9831561808','2026-06-02','B2B',1350,0,2,0,0,'2026-06-09','2026-06-10',1400,'R2','Veg',NULL,NULL,'To Be Arranged','Fusion Stays','Yes','Completed',1,2,2700,0,2700,0,1900,800),
+('IMP-0031','Md Shaker','7044778524','2026-06-05','B2C',1250,0,2,0,0,'2026-06-08','2026-06-09',2000,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'Yes','Completed',1,2,2500,0,2500,0,1700,800),
+('IMP-0032','Sushovit Dutt Mazumder',NULL,'2026-07-26','B2B',1100,0,5,0,0,'2026-10-18','2026-10-20',4000,'R1, R2','Veg',NULL,NULL,'To Be Arranged','Fusion Stays','No','Pending',2,5,11000,0,11000,7000,7000,4000),
+('IMP-0033','Arnab Chakraborty','82406 97743','2026-08-02','B2C',1300,0,4,0,0,'2026-08-05','2026-08-07',2000,'R1, R2','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Completed',2,4,10400,0,10400,0,7200,3200),
+('IMP-0034','Sujit Sinha','9123695462','2026-08-03','B2C',1350,0,1,0,0,'2026-08-14','2026-08-16',1000,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Completed',2,1,2700,0,2700,0,1900,800),
+('IMP-0035','Dipanwita Dutta','7595955402','2026-08-02','B2C',1350,0,1,0,0,'2026-10-19','2026-10-21',1300,'R3','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',2,1,2700,1400,2700,1400,1900,800),
+('IMP-0036','Shrabani Dutta','9339615361','2026-08-03','B2C',1350,0,2,0,0,'2026-09-02','2026-09-05',1500,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',3,2,8100,0,8100,6600,5700,2400),
+('IMP-0037','Anwesha Talukdar','8927673985','2026-08-11','B2C',1300,0,2,0,0,'2026-08-22','2026-08-23',1000,'R2','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',1,2,2600,0,2600,1600,1800,800),
+('IMP-0038','Prabir Nath','8420033016','2026-08-12','B2C',1350,0,4,0,0,'2026-10-20','2026-10-21',1500,'R1, R2','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',1,4,5400,0,5400,3900,3800,1600),
+('IMP-0039','Subhashis Shaw','6291600549','2026-08-13','B2C',1350,0,2,0,0,'2026-08-14','2026-08-16',1500,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Completed',2,2,5400,0,5400,0,3800,1600),
+('IMP-0040','Goutam Ghosh','9832888556','2026-08-14','B2C',1350,0,2,0,0,'2026-08-28','2026-08-30',1500,'R1','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',2,2,5400,0,5400,3900,3800,1600);
+COMMIT;
+-- Imported rows: 40
