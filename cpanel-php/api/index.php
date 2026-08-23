@@ -275,7 +275,7 @@ switch ($path) {
             $computed = computeBookingFields($payload);
             $mysqli = dbConnect();
             $stmt = $mysqli->prepare('UPDATE bookings SET guest_name = ?, mobile_number = ?, booking_date = ?, type_of_booking = ?, per_adult_tariff = ?, per_child_tariff = ?, number_adults = ?, number_children_5_plus = ?, number_children_under_5 = ?, check_in_date = ?, check_out_date = ?, advance_amount = ?, room_selection = ?, food_preference = ?, dietary_restrictions = ?, special_request = ?, communication_transport = ?, b2b_agency_name = ?, settlement = ?, payment_status = ?, muted_reminders = ?, total_nights = ?, total_pax = ?, total_adult_tariff = ?, total_child_tariff = ?, final_tariff = ?, pending_amount = ?, fooding_total = ?, lodging_total = ? WHERE booking_id = ?');
-            $stmt->bind_param('sssssdiiiiissssssssiiiddddds',
+            $stmt->bind_param('ssssddiiissdssssssssiiidddddds',
                 $payload['guestName'],
                 $payload['mobileNumber'],
                 $payload['bookingDate'],
@@ -307,10 +307,18 @@ switch ($path) {
                 $computed['lodgingTotal'],
                 $id
             );
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                $error = $stmt->error;
+                $stmt->close();
+                $mysqli->close();
+                error_log('Booking update failed: ' . $error);
+                jsonResponse(['error' => 'Failed to update booking.'], 500);
+            }
             $stmt->close();
+            $result = $mysqli->query("SELECT * FROM bookings WHERE booking_id = '" . $mysqli->real_escape_string($id) . "' LIMIT 1");
+            $updatedBooking = $result ? $result->fetch_assoc() : null;
             $mysqli->close();
-            jsonResponse(['success' => true, 'bookingId' => $id]);
+            jsonResponse($updatedBooking ? normalizeBooking($updatedBooking) : ['success' => true, 'bookingId' => $id]);
         }
         if ($method === 'DELETE') {
             $mysqli = dbConnect();
