@@ -274,6 +274,24 @@ switch ($path) {
             $payload = array_merge(normalizeBooking($existingRow), $body);
             $computed = computeBookingFields($payload);
             $mysqli = dbConnect();
+            if (count(array_diff(array_keys($body), ['settlement', 'paymentStatus'])) === 0) {
+                $statusStmt = $mysqli->prepare('UPDATE bookings SET settlement = ?, payment_status = ?, fooding_total = ?, lodging_total = ? WHERE booking_id = ?');
+                if (!$statusStmt) {
+                    $mysqli->close();
+                    jsonResponse(['error' => 'Failed to prepare status update.'], 500);
+                }
+                $statusStmt->bind_param('ssdds', $payload['settlement'], $payload['paymentStatus'], $computed['foodingTotal'], $computed['lodgingTotal'], $id);
+                if (!$statusStmt->execute()) {
+                    $statusStmt->close();
+                    $mysqli->close();
+                    jsonResponse(['error' => 'Failed to update booking status.'], 500);
+                }
+                $statusStmt->close();
+                $result = $mysqli->query("SELECT * FROM bookings WHERE booking_id = '" . $mysqli->real_escape_string($id) . "' LIMIT 1");
+                $updatedBooking = $result ? $result->fetch_assoc() : null;
+                $mysqli->close();
+                jsonResponse($updatedBooking ? normalizeBooking($updatedBooking) : ['success' => true, 'bookingId' => $id]);
+            }
             $stmt = $mysqli->prepare('UPDATE bookings SET guest_name = ?, mobile_number = ?, booking_date = ?, type_of_booking = ?, per_adult_tariff = ?, per_child_tariff = ?, number_adults = ?, number_children_5_plus = ?, number_children_under_5 = ?, check_in_date = ?, check_out_date = ?, advance_amount = ?, room_selection = ?, food_preference = ?, dietary_restrictions = ?, special_request = ?, communication_transport = ?, b2b_agency_name = ?, settlement = ?, payment_status = ?, muted_reminders = ?, total_nights = ?, total_pax = ?, total_adult_tariff = ?, total_child_tariff = ?, final_tariff = ?, pending_amount = ?, fooding_total = ?, lodging_total = ? WHERE booking_id = ?');
             $stmt->bind_param('ssssddiiissdssssssssiiidddddds',
                 $payload['guestName'],

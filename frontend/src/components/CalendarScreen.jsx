@@ -115,7 +115,7 @@ export default function CalendarScreen({ bookings = [], properties = [] }) {
 
                 {/* Calendar Grid Container */}
                 <div style={{ overflowX: 'auto', maxHeight: '320px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.75rem' }}>
                     <thead>
                       <tr>
                         <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid var(--border-color)', minWidth: '110px', width: '110px', position: 'sticky', left: 0, background: '#ffffff', zIndex: 20 }}>
