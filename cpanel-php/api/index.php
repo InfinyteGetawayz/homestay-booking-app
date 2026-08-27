@@ -274,6 +274,20 @@ switch ($path) {
             $payload = array_merge(normalizeBooking($existingRow), $body);
             $computed = computeBookingFields($payload);
             $mysqli = dbConnect();
+            $overlapStmt = $mysqli->prepare('SELECT booking_id, guest_name, check_in_date, check_out_date, room_selection FROM bookings WHERE booking_id <> ? AND check_in_date < ? AND check_out_date > ?');
+            $overlapStmt->bind_param('sss', $id, $payload['checkOutDate'], $payload['checkInDate']);
+            $overlapStmt->execute();
+            $overlaps = $overlapStmt->get_result();
+            while ($overlap = $overlaps->fetch_assoc()) {
+                $requestedRooms = array_map('trim', explode(',', (string) $payload['roomSelection']));
+                $existingRooms = array_map('trim', explode(',', (string) $overlap['room_selection']));
+                if (array_intersect($requestedRooms, $existingRooms)) {
+                    $overlapStmt->close();
+                    $mysqli->close();
+                    jsonResponse(['error' => 'Booking conflict with ' . $overlap['guest_name'] . ' (' . $overlap['check_in_date'] . ' to ' . $overlap['check_out_date'] . ').'], 409);
+                }
+            }
+            $overlapStmt->close();
             if (count(array_diff(array_keys($body), ['settlement', 'paymentStatus'])) === 0) {
                 $statusStmt = $mysqli->prepare('UPDATE bookings SET settlement = ?, payment_status = ?, fooding_total = ?, lodging_total = ? WHERE booking_id = ?');
                 if (!$statusStmt) {

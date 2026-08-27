@@ -40,6 +40,7 @@ export default function App() {
   // Routing
   const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'calendar' | 'add' | 'expenses' | 'accounts' | 'settings'
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [editingBooking, setEditingBooking] = useState(null);
 
   // Data
   const [bookings, setBookings] = useState([]);
@@ -287,6 +288,12 @@ export default function App() {
     }
   };
 
+  const handleEditBooking = (booking) => {
+    setSelectedBooking(null);
+    setEditingBooking(booking);
+    setCurrentTab('edit');
+  };
+
   const handleDeleteBooking = async (bookingId) => {
     if (isOffline || !navigator.onLine || token === 'local-mode') {
       const nextBookings = bookings.filter(b => b.bookingId !== bookingId);
@@ -453,6 +460,24 @@ export default function App() {
           }}
           onUpdateBooking={handleUpdateBooking}
           onDeleteBooking={handleDeleteBooking}
+          onEdit={handleEditBooking}
+        />
+      ) : currentTab === 'edit' ? (
+        <BookingForm
+          token={token}
+          bookings={bookings}
+          properties={properties}
+          editingBooking={editingBooking}
+          onBookingUpdated={(updatedBooking) => {
+            handleUpdateBooking(updatedBooking);
+            setEditingBooking(null);
+            setCurrentTab('dashboard');
+          }}
+          onCancelEdit={() => {
+            setEditingBooking(null);
+            setCurrentTab('dashboard');
+          }}
+          onBookingCreated={handleBookingCreated}
         />
       ) : (
         <>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, Calendar, Users, DollarSign, Save, AlertTriangle } from 'lucide-react';
 import { API_BASE } from '../apiBase';
 
-export default function BookingForm({ token, bookings = [], properties = [], onBookingCreated }) {
+export default function BookingForm({ token, bookings = [], properties = [], onBookingCreated, editingBooking = null, onBookingUpdated, onCancelEdit }) {
   // 17 Form Inputs state
   const [guestName, setGuestName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
@@ -53,14 +53,41 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
   const [validationError, setValidationError] = useState('');
   const [submitError, setSubmitError] = useState('');
 
+  useEffect(() => {
+    if (!editingBooking) return;
+    const rooms = String(editingBooking.roomSelection || '').split(',').map(room => room.trim()).filter(Boolean);
+    setGuestName(editingBooking.guestName || '');
+    setMobileNumber(editingBooking.mobileNumber || '');
+    setBookingDate(editingBooking.bookingDate || new Date().toISOString().split('T')[0]);
+    setTypeOfBooking(editingBooking.typeOfBooking || 'B2C');
+    setPerAdultTariff(String(editingBooking.perAdultTariff ?? ''));
+    setPerChildTariff(String(editingBooking.perChildTariff ?? ''));
+    setNumberAdults(Number(editingBooking.numberAdults || 0));
+    setNumberChildren5Plus(Number(editingBooking.numberChildren5Plus || 0));
+    setNumberChildrenUnder5(Number(editingBooking.numberChildrenUnder5 || 0));
+    setCheckInDate(editingBooking.checkInDate || '');
+    setCheckOutDate(editingBooking.checkOutDate || '');
+    setAdvanceAmount(String(editingBooking.advanceAmount ?? 0));
+    setSelectedRooms(rooms);
+    setProperty(properties.find(item => item.rooms?.some(room => rooms.includes(room)))?.id || properties[0]?.id || 'KGH');
+    setFoodPreference(editingBooking.foodPreference || 'Veg');
+    setDietaryRestrictions(editingBooking.dietaryRestrictions || '');
+    setSpecialRequest(editingBooking.specialRequest || '');
+    setCommunicationTransport(editingBooking.communicationTransport || 'To Be Arranged');
+    setB2bAgencyName(editingBooking.b2bAgencyName || '');
+    setGuestStatus(editingBooking.paymentStatus || 'Pending');
+    setSettlementCleared(editingBooking.settlement || 'No');
+  }, [editingBooking, properties]);
+
   // Dynamically query rooms based on property
   const matchedProperty = properties.find(p => p.id === property);
   const roomsList = matchedProperty ? matchedProperty.rooms : [];
 
   // Clear room selection when property changes
   useEffect(() => {
+    if (editingBooking) return;
     setSelectedRooms([]);
-  }, [property]);
+  }, [property, editingBooking]);
 
   // Interdependency: Settlement Cleared is locked to "No" unless Guest Status is "Completed Stay"
   useEffect(() => {
@@ -154,7 +181,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       // Target Intersect = (Selected Check-In < Existing Check-Out) AND (Selected Check-Out > Existing Check-In)
       const datesOverlap = checkIn < existingOut && checkOut > existingIn;
 
-      if (datesOverlap) {
+      if (datesOverlap && b.bookingId !== editingBooking?.bookingId) {
         const existingRooms = b.roomSelection.split(',').map(r => r.trim());
         const conflictingRoom = selectedRooms.find(r => existingRooms.includes(r));
         if (conflictingRoom) {
@@ -232,8 +259,8 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     };
 
     try {
-      const res = await fetch(`${API_BASE}/bookings`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/bookings${editingBooking ? `/${editingBooking.bookingId}` : ''}`, {
+        method: editingBooking ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -242,7 +269,8 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       });
       const data = await res.json();
       if (res.ok) {
-        onBookingCreated(data);
+        if (editingBooking) onBookingUpdated?.(data);
+        else onBookingCreated(data);
       } else {
         setSubmitError(data.error || 'Failed to save booking.');
       }
@@ -275,7 +303,10 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
 
   return (
     <div className="main-content" style={{ animation: 'fadeIn 0.3s ease' }}>
-      <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '4px' }}>New Guest Booking</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '4px' }}>{editingBooking ? 'Edit Guest Booking' : 'New Guest Booking'}</h2>
+        {editingBooking && <button type="button" className="btn btn-secondary" onClick={onCancelEdit}>Cancel</button>}
+      </div>
       
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         

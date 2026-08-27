@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { generateBookingPDF, shareBookingPDFViaWhatsApp } from '../utils/pdfGenerator';
-import { ArrowLeft, FileText, Share2, Trash2, User, Phone, Calendar, Home, MessageSquare, Briefcase } from 'lucide-react';
+import { ArrowLeft, FileText, Share2, Trash2, User, Phone, Calendar, Home, MessageSquare, Briefcase, Pencil } from 'lucide-react';
 import { API_BASE } from '../apiBase';
 
-export default function BookingDetails({ booking, token, onBack, onUpdateBooking, onDeleteBooking }) {
+export default function BookingDetails({ booking, token, onBack, onUpdateBooking, onDeleteBooking, onEdit }) {
   const [settlement, setSettlement] = useState(booking.settlement || 'No');
   const [paymentStatus, setPaymentStatus] = useState(booking.paymentStatus || 'Pending');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -269,6 +269,9 @@ export default function BookingDetails({ booking, token, onBack, onUpdateBooking
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
           
           <div className="form-row">
+            <button onClick={() => onEdit?.(booking)} className="btn btn-secondary">
+              <Pencil size={18} /> Edit Booking
+            </button>
             <button onClick={handleGeneratePDF} className="btn btn-secondary">
               <FileText size={18} /> Receipt PDF
             </button>
