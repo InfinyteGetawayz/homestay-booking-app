@@ -181,8 +181,8 @@ function computeBookingFields(array $data): array {
     }
 
     $totalPax = $adults + $children5Plus + $childrenUnder5;
-    $totalAdultTariff = $adults * $perAdult;
-    $totalChildTariff = $children5Plus * $perChild;
+    $totalAdultTariff = $adults * $perAdult * $totalNights;
+    $totalChildTariff = $children5Plus * $perChild * $totalNights;
     $finalTariff = $totalAdultTariff + $totalChildTariff;
     $pendingAmount = max(0, $finalTariff - $advance);
     $foodingTotal = $totalAdultTariff * 0.45;

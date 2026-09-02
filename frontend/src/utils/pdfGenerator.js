@@ -244,9 +244,9 @@ export function generateBookingPDF(booking) {
 
 export function shareBookingPDFViaWhatsApp(booking) {
   const cachedProperties = JSON.parse(localStorage.getItem('properties_cache') || '[]');
-  const prefix = booking.bookingId ? booking.bookingId.substring(0, 3) : 'KGH';
-  const matchedProp = cachedProperties.find(p => p.id === prefix);
-  const homestayName = matchedProp ? matchedProp.name : (prefix === 'KGH' ? 'Kanchan Ghar' : 'Mungpoo Bliss');
+  const rooms = String(booking.roomSelection || '').split(',').map(room => room.trim());
+  const matchedProp = cachedProperties.find(property => property.rooms?.some(room => rooms.includes(room))) || cachedProperties[0];
+  const homestayName = matchedProp?.name || 'Homestay';
 
   const message = `Hello ${booking.guestName},\n\nWe are pleased to confirm your booking at *${homestayName}*.\n\n*Booking ID:* ${booking.bookingId}\n*Check-In:* ${booking.checkInDate}\n*Check-Out:* ${booking.checkOutDate}\n*Rooms:* ${booking.roomSelection}\n*Guests:* ${booking.totalPax} Pax\n*Pending Amount:* ₹${booking.pendingAmount}\n\nWe have sent your confirmation receipt. While clearing the pending amount, kindly ensure to *GPay only* rather than cash. See you soon!\n\nBest Regards,\nInfinyte Getawayz`;
   

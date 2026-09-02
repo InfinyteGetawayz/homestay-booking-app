@@ -468,9 +468,10 @@ export default function App() {
           bookings={bookings}
           properties={properties}
           editingBooking={editingBooking}
-          onBookingUpdated={(updatedBooking) => {
-            handleUpdateBooking(updatedBooking);
+          onBookingUpdated={async (updatedBooking) => {
+            await handleUpdateBooking(updatedBooking);
             setEditingBooking(null);
+            setSelectedBooking(null);
             setCurrentTab('dashboard');
           }}
           onCancelEdit={() => {
