@@ -45,5 +45,10 @@ INSERT INTO bookings (booking_id, guest_name, mobile_number, booking_date, type_
 ('IMP-0040','Goutam Ghosh / Babli Das','9832888556','2026-08-14','B2C',1350,0,2,0,0,'2026-08-28','2026-08-30',1500,'Talung','Veg',NULL,NULL,'To Be Arranged',NULL,'No','No Show',2,2,5400,0,1500,0,1500,0),
 ('IMP-0041','Dipanwita Dutta Friends','7595955402','2026-08-25','B2C',1350,0,2,0,0,'2026-10-19','2026-10-20',0,'Teesta','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',1,2,2700,0,2700,2700,1900,800),
 ('IMP-0042','Priya Shit','8910276512','2026-09-02','B2C',1250,0,3,0,0,'2026-10-17','2026-10-19',1500,'Kabru','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',2,3,7500,0,7500,6000,5100,2400);
+
+UPDATE bookings
+SET fooding_total = CASE WHEN TRIM(payment_status) = 'No Show' THEN 0 ELSE 400 * total_pax * total_nights END,
+	lodging_total = CASE WHEN TRIM(payment_status) = 'No Show' THEN final_tariff ELSE final_tariff - (400 * total_pax * total_nights) END;
+
 COMMIT;
 -- Imported rows: 42
