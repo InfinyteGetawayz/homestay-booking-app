@@ -95,6 +95,8 @@ switch ($path) {
                     'name' => $row['name'],
                     'rooms' => json_decode($row['rooms'], true) ?: [],
                     'logo' => $row['logo'] ?? null,
+                    'foodAdultTariff' => (float) ($row['food_adult_tariff'] ?? 400),
+                    'foodChildTariff' => (float) ($row['food_child_tariff'] ?? 200),
                 ];
             }
             $mysqli->close();
@@ -106,19 +108,21 @@ switch ($path) {
             $name = trim((string) ($body['name'] ?? ''));
             $rooms = $body['rooms'] ?? [];
             $logo = $body['logo'] ?? null;
+            $foodAdultTariff = max(0, (float) ($body['foodAdultTariff'] ?? 400));
+            $foodChildTariff = max(0, (float) ($body['foodChildTariff'] ?? 200));
             if ($id === '' || $name === '' || !is_array($rooms)) {
                 jsonResponse(['error' => 'Invalid property configuration.'], 400);
             }
             $mysqli = dbConnect();
-            $stmt = $mysqli->prepare('INSERT INTO properties (id, name, rooms, logo) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), rooms = VALUES(rooms), logo = COALESCE(VALUES(logo), logo)');
+            $stmt = $mysqli->prepare('INSERT INTO properties (id, name, rooms, logo, food_adult_tariff, food_child_tariff) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), rooms = VALUES(rooms), logo = COALESCE(VALUES(logo), logo), food_adult_tariff = VALUES(food_adult_tariff), food_child_tariff = VALUES(food_child_tariff)');
             $jsonRooms = json_encode(array_values($rooms), JSON_UNESCAPED_SLASHES);
-            $stmt->bind_param('ssss', $id, $name, $jsonRooms, $logo);
+            $stmt->bind_param('ssssdd', $id, $name, $jsonRooms, $logo, $foodAdultTariff, $foodChildTariff);
             $stmt->execute();
             $stmt->close();
             $result = $mysqli->query('SELECT * FROM properties ORDER BY name ASC');
             $updatedProperties = [];
             while ($row = $result->fetch_assoc()) {
-                $updatedProperties[] = ['id' => $row['id'], 'name' => $row['name'], 'rooms' => json_decode($row['rooms'], true) ?: [], 'logo' => $row['logo'] ?? null];
+                $updatedProperties[] = ['id' => $row['id'], 'name' => $row['name'], 'rooms' => json_decode($row['rooms'], true) ?: [], 'logo' => $row['logo'] ?? null, 'foodAdultTariff' => (float) ($row['food_adult_tariff'] ?? 400), 'foodChildTariff' => (float) ($row['food_child_tariff'] ?? 200)];
             }
             $mysqli->close();
             jsonResponse(['success' => true, 'properties' => $updatedProperties], 201);
@@ -173,7 +177,29 @@ switch ($path) {
                 jsonResponse(['error' => 'Missing required booking fields.'], 400);
             }
 
-            $computed = computeBookingFields($payload);
+                $propertyLookup = dbConnect();
+                $propertyResult = $propertyLookup->query('SELECT id, rooms, food_adult_tariff, food_child_tariff FROM properties');
+                $props = [];
+                while ($propertyRow = $propertyResult->fetch_assoc()) {
+                    $props[] = [
+                        'id' => $propertyRow['id'],
+                        'rooms' => json_decode($propertyRow['rooms'], true) ?: [],
+                        'foodAdultTariff' => (float) ($propertyRow['food_adult_tariff'] ?? 400),
+                        'foodChildTariff' => (float) ($propertyRow['food_child_tariff'] ?? 200),
+                    ];
+                }
+                $propertyLookup->close();
+                $selectedRooms = array_map('trim', explode(',', (string) ($payload['roomSelection'] ?? '')));
+                $matchedProperty = null;
+                foreach ($props as $prop) {
+                    if (array_intersect($selectedRooms, $prop['rooms'])) {
+                        $matchedProperty = $prop;
+                        break;
+                    }
+                }
+                $payload['foodAdultTariff'] = $matchedProperty['foodAdultTariff'] ?? 400;
+                $payload['foodChildTariff'] = $matchedProperty['foodChildTariff'] ?? 200;
+                $computed = computeBookingFields($payload);
             $roomSelection = trim((string) ($payload['roomSelection'] ?? ''));
             $bookingId = generateBookingId($roomSelection);
             $mysqli = dbConnect();
@@ -267,11 +293,22 @@ switch ($path) {
             $existingStmt->execute();
             $existingRow = $existingStmt->get_result()->fetch_assoc();
             $existingStmt->close();
-            $lookup->close();
             if (!$existingRow) {
+                $lookup->close();
                 jsonResponse(['error' => 'Booking not found.'], 404);
             }
             $payload = array_merge(normalizeBooking($existingRow), $body);
+            $propertyResult = $lookup->query('SELECT rooms, food_adult_tariff, food_child_tariff FROM properties');
+            $requestedRooms = array_map('trim', explode(',', (string) ($payload['roomSelection'] ?? '')));
+            while ($propertyRow = $propertyResult->fetch_assoc()) {
+                $propertyRooms = json_decode($propertyRow['rooms'], true) ?: [];
+                if (array_intersect($requestedRooms, $propertyRooms)) {
+                    $payload['foodAdultTariff'] = (float) ($propertyRow['food_adult_tariff'] ?? 400);
+                    $payload['foodChildTariff'] = (float) ($propertyRow['food_child_tariff'] ?? 200);
+                    break;
+                }
+            }
+            $lookup->close();
             $computed = computeBookingFields($payload);
             $mysqli = dbConnect();
             $overlapStmt = $mysqli->prepare('SELECT booking_id, guest_name, check_in_date, check_out_date, room_selection FROM bookings WHERE booking_id <> ? AND check_in_date < ? AND check_out_date > ?');

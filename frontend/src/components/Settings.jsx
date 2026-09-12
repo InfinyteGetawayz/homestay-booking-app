@@ -41,6 +41,8 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
   const [selectedPropId, setSelectedPropId] = useState('');
   const [roomConfigString, setRoomConfigString] = useState('');
   const [propertyLogo, setPropertyLogo] = useState('');
+  const [foodAdultTariff, setFoodAdultTariff] = useState(400);
+  const [foodChildTariff, setFoodChildTariff] = useState(200);
   const [propertyMessage, setPropertyMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
@@ -82,6 +84,8 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
         setSelectedPropId(data[0].id);
         setRoomConfigString(data[0].rooms.join(', '));
         setPropertyLogo(data[0].logo || '');
+        setFoodAdultTariff(data[0].foodAdultTariff ?? 400);
+        setFoodChildTariff(data[0].foodChildTariff ?? 200);
       }
     } catch (e) {
       console.error('Failed to fetch properties:', e);
@@ -281,6 +285,8 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     if (prop) {
       setRoomConfigString(prop.rooms.join(', '));
       setPropertyLogo(prop.logo || '');
+      setFoodAdultTariff(prop.foodAdultTariff ?? 400);
+      setFoodChildTariff(prop.foodChildTariff ?? 200);
     }
   };
 
@@ -298,12 +304,12 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
 
   const handleSaveLogo = async () => {
     const prop = properties.find(p => p.id === selectedPropId);
-    if (!prop || !propertyLogo) return;
+    if (!prop) return;
     try {
       const res = await fetch(`${API_BASE}/properties`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ id: prop.id, name: prop.name, rooms: prop.rooms, logo: propertyLogo })
+        body: JSON.stringify({ id: prop.id, name: prop.name, rooms: prop.rooms, logo: propertyLogo, foodAdultTariff, foodChildTariff })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save logo.');
@@ -513,6 +519,20 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
 
             <button type="submit" className="btn btn-primary" style={{ padding: '8px', fontSize: '0.85rem' }}>
               Save Room Configuration
+            </button>
+
+            <div className="form-row">
+              <div className="form-group" style={{ marginBottom: 4 }}>
+                <label>Adult Food Tariff / Person / Night</label>
+                <input type="number" min="0" step="0.01" className="form-control" value={foodAdultTariff} onChange={e => setFoodAdultTariff(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ marginBottom: 4 }}>
+                <label>Child Food Tariff (5-10) / Night</label>
+                <input type="number" min="0" step="0.01" className="form-control" value={foodChildTariff} onChange={e => setFoodChildTariff(e.target.value)} />
+              </div>
+            </div>
+            <button type="button" onClick={handleSaveLogo} className="btn btn-secondary" style={{ padding: '8px', fontSize: '0.85rem' }}>
+              Save Food Tariffs
             </button>
 
             <label>Homestay Logo</label>

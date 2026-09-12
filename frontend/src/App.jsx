@@ -6,7 +6,8 @@ import CalendarScreen from './components/CalendarScreen';
 import Expenses from './components/Expenses';
 import Accounts from './components/Accounts';
 import Settings from './components/Settings';
-import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, Lock, Wifi, WifiOff, Receipt, BarChart3 } from 'lucide-react';
+import BookingNotes from './components/BookingNotes';
+import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, Lock, Wifi, WifiOff, Receipt, BarChart3, ClipboardList } from 'lucide-react';
 import { API_BASE } from './apiBase';
 
 const isApiErrorResponse = (response) => response && !response.ok && response.status !== 0;
@@ -517,6 +518,10 @@ export default function App() {
             <Accounts token={token} bookings={bookings} />
           )}
 
+          {currentTab === 'notes' && (
+            <BookingNotes bookings={bookings} />
+          )}
+
           {currentTab === 'settings' && (
             <Settings 
               token={token} 
@@ -568,6 +573,14 @@ export default function App() {
           >
             <BarChart3 className="nav-icon" />
             <span>Accounts</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentTab('notes')}
+            className={`nav-item ${currentTab === 'notes' ? 'active' : ''}`}
+          >
+            <ClipboardList className="nav-icon" />
+            <span>Notes</span>
           </button>
 
           <button 

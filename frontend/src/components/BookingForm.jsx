@@ -143,8 +143,8 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
 
     const pendingAmount = finalTariff - advanceVal;
 
-    // Fooding: adults ₹400, children 5-10 ₹200, under-5 free.
-    const foodingTotal = ((numberAdults * 400) + (numberChildren5Plus * 200)) * totalNights;
+    // Fooding: adults use the selected property's tariff; children 5-10 use its child tariff.
+    const foodingTotal = ((numberAdults * Number(matchedProperty?.foodAdultTariff ?? 400)) + (numberChildren5Plus * Number(matchedProperty?.foodChildTariff ?? 200))) * totalNights;
     const lodgingTotal = finalTariff - foodingTotal;
 
     setComputed({
@@ -159,7 +159,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     });
   }, [
     checkInDate, checkOutDate, perAdultTariff, perChildTariff,
-    numberAdults, numberChildren5Plus, advanceAmount
+    numberAdults, numberChildren5Plus, advanceAmount, property, properties
   ]);
 
   // Crucial Overlapping Date Validation Engine (Instant check)
@@ -256,6 +256,8 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       settlement: settlementCleared,
       paymentStatus: guestStatus,
       mutedReminders: false
+      ,foodAdultTariff: Number(matchedProperty?.foodAdultTariff ?? 400)
+      ,foodChildTariff: Number(matchedProperty?.foodChildTariff ?? 200)
     };
 
     try {
