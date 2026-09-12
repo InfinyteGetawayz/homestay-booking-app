@@ -47,8 +47,8 @@ INSERT INTO bookings (booking_id, guest_name, mobile_number, booking_date, type_
 ('IMP-0042','Priya Shit','8910276512','2026-09-02','B2C',1250,0,3,0,0,'2026-10-17','2026-10-19',1500,'Kabru','Veg',NULL,NULL,'To Be Arranged',NULL,'No','Pending',2,3,7500,0,7500,6000,5100,2400);
 
 UPDATE bookings
-SET fooding_total = CASE WHEN TRIM(payment_status) = 'No Show' THEN 0 ELSE 400 * total_pax * total_nights END,
-	lodging_total = CASE WHEN TRIM(payment_status) = 'No Show' THEN final_tariff ELSE final_tariff - (400 * total_pax * total_nights) END;
+SET fooding_total = CASE WHEN TRIM(payment_status) = 'No Show' THEN 0 ELSE ((400 * number_adults) + (200 * number_children_5_plus)) * total_nights END,
+	lodging_total = CASE WHEN TRIM(payment_status) = 'No Show' THEN final_tariff ELSE final_tariff - (((400 * number_adults) + (200 * number_children_5_plus)) * total_nights) END;
 
 COMMIT;
 -- Imported rows: 42

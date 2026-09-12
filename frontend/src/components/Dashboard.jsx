@@ -542,7 +542,7 @@ export default function Dashboard({ bookings = [], properties = [], token, onSel
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                       <div>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Owed Fooding Amount (₹400/Pax/N)</p>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Owed Fooding (Adults ₹400, Children 5-10 ₹200/N)</p>
                         <p style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-rose)' }}>₹{b.foodingTotal}</p>
                       </div>
                       

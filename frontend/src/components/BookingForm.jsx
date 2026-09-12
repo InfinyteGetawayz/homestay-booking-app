@@ -143,8 +143,8 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
 
     const pendingAmount = finalTariff - advanceVal;
 
-    // Fixed Fooding Standard rate is ₹400 per person per night
-    const foodingTotal = 400 * totalPax * totalNights;
+    // Fooding: adults ₹400, children 5-10 ₹200, under-5 free.
+    const foodingTotal = ((numberAdults * 400) + (numberChildren5Plus * 200)) * totalNights;
     const lodgingTotal = finalTariff - foodingTotal;
 
     setComputed({
@@ -649,7 +649,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
                 <span>₹{computed.lodgingTotal}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Fooding F&B (₹400/person/night):</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Fooding F&B (Adults ₹400, Children 5-10 ₹200/night):</span>
                 <span>₹{computed.foodingTotal}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '0.95rem', borderTop: '1px solid var(--border-color)', paddingTop: '6px', marginTop: '4px' }}>

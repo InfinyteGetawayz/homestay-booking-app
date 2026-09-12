@@ -184,7 +184,7 @@ export default function BookingDetails({ booking, token, onBack, onUpdateBooking
           )}
           
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '4px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Estimated Fooding (₹400 / Pax / Night)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Estimated Fooding (Adults ₹400, Children 5-10 ₹200/night)</span>
             <span>₹{booking.foodingTotal}</span>
           </div>
 

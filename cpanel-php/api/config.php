@@ -185,7 +185,7 @@ function computeBookingFields(array $data): array {
     $totalChildTariff = $children5Plus * $perChild * $totalNights;
     $finalTariff = $totalAdultTariff + $totalChildTariff;
     $pendingAmount = max(0, $finalTariff - $advance);
-    $foodingTotal = 400 * $totalPax * $totalNights;
+    $foodingTotal = (($adults * 400) + ($children5Plus * 200)) * $totalNights;
     $lodgingTotal = $finalTariff - $foodingTotal;
 
     if (($data['paymentStatus'] ?? $data['payment_status'] ?? '') === 'No Show') {
