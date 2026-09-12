@@ -11,17 +11,17 @@ const buildNotes = (bookings, month) => bookings
   .filter(booking => String(booking.checkInDate || '').startsWith(month))
   .sort((a, b) => String(a.checkInDate).localeCompare(String(b.checkInDate)))
   .map(booking => [
-    `Guest : **${booking.guestName || '-'}**`,
-    `Mobile : **${booking.mobileNumber || '-'}**`,
-    `Check In Date : **${formatDate(booking.checkInDate)}**`,
-    `Check Out Date : **${formatDate(booking.checkOutDate)}**`,
-    `Number of Adults : **${booking.numberAdults ?? 0}**`,
-    `Number of Childrens : **${booking.numberChildren5Plus ?? 0}**`,
-    `Number of Infants : **${booking.numberChildrenUnder5 ?? 0}**`,
-    `Rooms : **${booking.roomSelection || '-'}**`,
-    `Meal Type : **${booking.foodPreference || '-'}**`,
-    `Special Requests : **${booking.specialRequest || '-'}**`,
-    `Car : **${booking.communicationTransport || '-'}**`,
+    `Guest : *${booking.guestName || '-'}*`,
+    `Mobile : *${booking.mobileNumber || '-'}*`,
+    `Check In Date : *${formatDate(booking.checkInDate)}*`,
+    `Check Out Date : *${formatDate(booking.checkOutDate)}*`,
+    `Number of Adults : *${booking.numberAdults ?? 0}*`,
+    `Number of Childrens : *${booking.numberChildren5Plus ?? 0}*`,
+    `Number of Infants : *${booking.numberChildrenUnder5 ?? 0}*`,
+    `Rooms : *${booking.roomSelection || '-'}*`,
+    `Meal Type : *${booking.foodPreference || '-'}*`,
+    `Special Requests : *${booking.specialRequest || '-'}*`,
+    `Car : *${booking.communicationTransport || '-'}*`,
   ].join('\n')).join('\n\n');
 
 export default function BookingNotes({ bookings = [] }) {
