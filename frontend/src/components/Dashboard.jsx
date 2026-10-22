@@ -111,7 +111,7 @@ export default function Dashboard({ bookings = [], properties = [], token, onSel
     // Monthly revenue (sum finalTariff for check-in in the current month)
     const currentMonthPrefix = new Date().toISOString().substring(0, 7); // "YYYY-MM"
     const amount = booking => Number(booking.finalTariff || 0);
-    const lodging = booking => booking.paymentStatus === 'No Show' ? amount(booking) : Number(booking.lodgingTotal || 0);
+    const lodging = booking => booking.paymentStatus === 'No Show' ? Number(booking.advanceAmount || 0) : Number(booking.lodgingTotal || 0);
     const fooding = booking => booking.paymentStatus === 'No Show' ? 0 : Number(booking.foodingTotal || 0);
     const monthlyRev = bookings
       .filter(b => String(b.checkInDate || '').startsWith(currentMonthPrefix) && b.paymentStatus !== 'No Show')

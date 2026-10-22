@@ -30,7 +30,7 @@ export default function Accounts({ token, bookings = [] }) {
   const summary = useMemo(() => {
     const income = bookings.reduce((sum, booking) => sum + (
       booking.paymentStatus === 'No Show'
-        ? Number(booking.finalTariff || 0)
+        ? Number(booking.advanceAmount || 0)
         : Number(booking.lodgingTotal || 0)
     ), 0);
     const expenditure = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
