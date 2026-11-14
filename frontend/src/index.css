@@ -498,3 +498,187 @@ select.form-control option {
   padding-bottom: 8px;
   scroll-snap-type: x mandatory;
 }
+
+.navbar {
+  align-items: center;
+}
+
+.nav-more {
+  position: relative;
+  width: 60px;
+  display: flex;
+  justify-content: center;
+}
+
+.nav-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: min(230px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-main);
+}
+
+.nav-menu button {
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-menu button.active,
+.nav-menu button:hover {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+.annual-report-grid,
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.annual-report-grid > div,
+.accounts-grid > div {
+  min-width: 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.035);
+  border-radius: var(--radius-sm);
+}
+
+.annual-report-grid dt,
+.accounts-grid dt {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.annual-report-grid dd,
+.accounts-grid dd {
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.accounts-grid dd.income {
+  color: #0f766e;
+}
+
+.accounts-grid dd.loss {
+  color: #be123c;
+}
+
+.calendar-year-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.calendar-year-control button {
+  display: flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.calendar-year-control span {
+  min-width: 42px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.calendar-table-scroll {
+  max-height: 62vh;
+  overflow: auto;
+}
+
+.occupancy-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.72rem;
+}
+
+.occupancy-table th,
+.occupancy-table td {
+  min-width: 42px;
+  height: 30px;
+  padding: 4px;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.occupancy-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.occupancy-table .occupancy-date {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 48px;
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.occupancy-table thead .occupancy-date {
+  z-index: 4;
+}
+
+.occupancy-mark {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #9ca3af;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.occupancy-mark.occupied {
+  border-color: #0f766e;
+  background: #0f766e;
+}
+
+.calendar-legend {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 360px) {
+  .nav-item,
+  .nav-more {
+    width: 52px;
+  }
+
+  .nav-item {
+    font-size: 0.68rem;
+  }
+}

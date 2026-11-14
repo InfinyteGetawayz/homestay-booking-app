@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Calendar, Users, DollarSign, Save, AlertTriangle } from 'lucide-react';
 import { API_BASE } from '../apiBase';
+import { getBookingPropertyId, getPropertyConfiguration } from '../utils/property';
 
 export default function BookingForm({ token, bookings = [], properties = [], onBookingCreated, editingBooking = null, onBookingUpdated, onCancelEdit }) {
   // 17 Form Inputs state
@@ -69,7 +70,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     setCheckOutDate(editingBooking.checkOutDate || '');
     setAdvanceAmount(String(editingBooking.advanceAmount ?? 0));
     setSelectedRooms(rooms);
-    setProperty(properties.find(item => item.rooms?.some(room => rooms.includes(room)))?.id || properties[0]?.id || 'KGH');
+    setProperty(getBookingPropertyId(editingBooking, properties) || properties.find(item => item.rooms?.some(room => rooms.includes(room)))?.id || properties[0]?.id || 'KGH');
     setFoodPreference(editingBooking.foodPreference || 'Veg');
     setDietaryRestrictions(editingBooking.dietaryRestrictions || '');
     setSpecialRequest(editingBooking.specialRequest || '');
@@ -81,7 +82,8 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
 
   // Dynamically query rooms based on property
   const matchedProperty = properties.find(p => p.id === property);
-  const roomsList = matchedProperty ? matchedProperty.rooms : [];
+  const matchedConfiguration = getPropertyConfiguration(matchedProperty, checkInDate);
+  const roomsList = matchedConfiguration.rooms || [];
 
   // Clear room selection when property changes
   useEffect(() => {
@@ -144,8 +146,11 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     const pendingAmount = finalTariff - advanceVal;
 
     // Fooding: adults use the selected property's tariff; children 5-10 use its child tariff.
-    const foodingTotal = ((numberAdults * Number(matchedProperty?.foodAdultTariff ?? 400)) + (numberChildren5Plus * Number(matchedProperty?.foodChildTariff ?? 200))) * totalNights;
-    const lodgingTotal = finalTariff - foodingTotal;
+    const foodingTotal = guestStatus === 'No Show' ? 0 : (
+      (numberAdults * Number(matchedConfiguration.foodAdultTariff ?? 400))
+      + (numberChildren5Plus * Number(matchedConfiguration.foodChildTariff ?? 200))
+    ) * totalNights;
+    const lodgingTotal = guestStatus === 'No Show' ? advanceVal : finalTariff - foodingTotal;
 
     setComputed({
       totalNights,
@@ -159,7 +164,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     });
   }, [
     checkInDate, checkOutDate, perAdultTariff, perChildTariff,
-    numberAdults, numberChildren5Plus, advanceAmount, property, properties
+    numberAdults, numberChildren5Plus, advanceAmount, property, properties, checkInDate, guestStatus
   ]);
 
   // Crucial Overlapping Date Validation Engine (Instant check)
@@ -175,6 +180,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     // Check conflicts against existing active bookings
     for (const b of bookings) {
       if (b.paymentStatus === 'No Show') continue;
+      if (getBookingPropertyId(b, properties) !== property) continue;
       const existingIn = new Date(b.checkInDate);
       const existingOut = new Date(b.checkOutDate);
 
@@ -191,7 +197,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       }
     }
     setValidationError('');
-  }, [checkInDate, checkOutDate, selectedRooms, property, bookings]);
+  }, [checkInDate, checkOutDate, selectedRooms, property, properties, bookings]);
 
   const handleRoomToggle = (room) => {
     if (selectedRooms.includes(room)) {
@@ -247,6 +253,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       checkInDate,
       checkOutDate,
       advanceAmount: parseFloat(advanceAmount) || 0,
+      propertyId: property,
       roomSelection: selectedRooms.join(','),
       foodPreference,
       dietaryRestrictions,
@@ -256,8 +263,8 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       settlement: settlementCleared,
       paymentStatus: guestStatus,
       mutedReminders: false
-      ,foodAdultTariff: Number(matchedProperty?.foodAdultTariff ?? 400)
-      ,foodChildTariff: Number(matchedProperty?.foodChildTariff ?? 200)
+      ,foodAdultTariff: Number(matchedConfiguration.foodAdultTariff ?? 400)
+      ,foodChildTariff: Number(matchedConfiguration.foodChildTariff ?? 200)
     };
 
     try {
@@ -278,10 +285,22 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       }
     } catch (err) {
       console.error('Booking submission failed:', err);
-      setSubmitError('Connection failed. Queueing booking offline...');
-      // Local sync queue for offline capability
       const offlineQueue = JSON.parse(localStorage.getItem('booking_sync_queue') || '[]');
-      offlineQueue.push(bookingPayload);
+      if (editingBooking) {
+        offlineQueue.push({
+          operation: 'update',
+          bookingId: editingBooking.bookingId,
+          payload: bookingPayload
+        });
+        localStorage.setItem('booking_sync_queue', JSON.stringify(offlineQueue));
+        const updatedBooking = { ...editingBooking, ...bookingPayload, ...computed };
+        await onBookingUpdated?.(updatedBooking);
+        alert('Booking update saved on this device. It will sync when the connection is restored.');
+        return;
+      }
+
+      setSubmitError('Connection failed. Queueing booking offline...');
+      offlineQueue.push({ operation: 'create', payload: bookingPayload });
       localStorage.setItem('booking_sync_queue', JSON.stringify(offlineQueue));
       
       // Add a dummy local cache to bookings to show immediately

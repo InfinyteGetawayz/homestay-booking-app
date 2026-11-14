@@ -10,7 +10,8 @@ const pool = new Pool({
 const COLUMNS = [
   'bookingId', 'guestName', 'mobileNumber', 'bookingDate', 'typeOfBooking',
   'perAdultTariff', 'perChildTariff', 'numberAdults', 'numberChildren5Plus', 'numberChildrenUnder5',
-  'checkInDate', 'checkOutDate', 'advanceAmount', 'roomSelection', 'foodPreference',
+  'checkInDate', 'checkOutDate', 'advanceAmount', 'propertyId', 'roomSelection', 'foodPreference',
+  'foodAdultTariff', 'foodChildTariff',
   'dietaryRestrictions', 'specialRequest', 'communicationTransport', 'b2bAgencyName',
   'settlement', 'paymentStatus', 'mutedReminders', 'createdAt',
   'totalNights', 'totalPax', 'totalAdultTariff', 'totalChildTariff', 'finalTariff',
@@ -38,7 +39,10 @@ async function initializeDatabase() {
         "checkInDate" DATE NOT NULL,
         "checkOutDate" DATE NOT NULL,
         "advanceAmount" NUMERIC(10,2) DEFAULT 0,
+        "propertyId" VARCHAR(50),
         "roomSelection" TEXT NOT NULL,
+        "foodAdultTariff" NUMERIC(10,2) DEFAULT 400,
+        "foodChildTariff" NUMERIC(10,2) DEFAULT 400,
         "foodPreference" VARCHAR(100) DEFAULT 'Veg',
         "dietaryRestrictions" TEXT DEFAULT '',
         "specialRequest" TEXT DEFAULT '',
@@ -66,6 +70,11 @@ async function initializeDatabase() {
         "propertyId" VARCHAR(50) UNIQUE NOT NULL,
         "name" VARCHAR(255) NOT NULL,
         "rooms" TEXT[] NOT NULL,
+        "logo" TEXT,
+        "foodAdultTariff" NUMERIC(10,2) DEFAULT 400,
+        "foodChildTariff" NUMERIC(10,2) DEFAULT 400,
+        "businessYearEndDate" DATE,
+        "configurationHistory" JSONB NOT NULL DEFAULT '[]'::jsonb,
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -77,8 +86,23 @@ async function initializeDatabase() {
         "description" TEXT NOT NULL,
         "expenseDate" DATE,
         "amount" NUMERIC(10,2) NOT NULL,
+        "propertyId" VARCHAR(50),
+        "expenseType" VARCHAR(20) NOT NULL DEFAULT 'Opex',
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    await client.query(`
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "propertyId" VARCHAR(50);
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "foodAdultTariff" NUMERIC(10,2) DEFAULT 400;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "foodChildTariff" NUMERIC(10,2) DEFAULT 400;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "logo" TEXT;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "foodAdultTariff" NUMERIC(10,2) DEFAULT 400;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "foodChildTariff" NUMERIC(10,2) DEFAULT 400;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "businessYearEndDate" DATE;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "configurationHistory" JSONB NOT NULL DEFAULT '[]'::jsonb;
+      ALTER TABLE expenses ADD COLUMN IF NOT EXISTS "propertyId" VARCHAR(50);
+      ALTER TABLE expenses ADD COLUMN IF NOT EXISTS "expenseType" VARCHAR(20) NOT NULL DEFAULT 'Opex';
     `);
 
     // Create config table
@@ -146,8 +170,11 @@ function convertDatabaseRowToBooking(row) {
     checkInDate: row.checkInDate,
     checkOutDate: row.checkOutDate,
     advanceAmount: parseFloat(row.advanceAmount) || 0,
+    propertyId: row.propertyId || '',
     roomSelection: row.roomSelection,
     foodPreference: row.foodPreference,
+    foodAdultTariff: parseFloat(row.foodAdultTariff) || 0,
+    foodChildTariff: parseFloat(row.foodChildTariff) || 0,
     dietaryRestrictions: row.dietaryRestrictions,
     specialRequest: row.specialRequest,
     communicationTransport: row.communicationTransport,
@@ -174,19 +201,21 @@ async function insertBooking(booking) {
       INSERT INTO bookings (
         "bookingId", "guestName", "mobileNumber", "bookingDate", "typeOfBooking",
         "perAdultTariff", "perChildTariff", "numberAdults", "numberChildren5Plus", "numberChildrenUnder5",
-        "checkInDate", "checkOutDate", "advanceAmount", "roomSelection", "foodPreference",
+        "checkInDate", "checkOutDate", "advanceAmount", "propertyId", "roomSelection", "foodPreference",
+        "foodAdultTariff", "foodChildTariff",
         "dietaryRestrictions", "specialRequest", "communicationTransport", "b2bAgencyName",
         "settlement", "paymentStatus", "mutedReminders", "createdAt",
         "totalNights", "totalPax", "totalAdultTariff", "totalChildTariff", "finalTariff",
         "pendingAmount", "foodingTotal", "lodgingTotal"
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-        $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
+        $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34
       ) RETURNING *
     `, [
       booking.bookingId, booking.guestName, booking.mobileNumber, booking.bookingDate, booking.typeOfBooking,
       booking.perAdultTariff, booking.perChildTariff, booking.numberAdults, booking.numberChildren5Plus, booking.numberChildrenUnder5,
-      booking.checkInDate, booking.checkOutDate, booking.advanceAmount, booking.roomSelection, booking.foodPreference,
+      booking.checkInDate, booking.checkOutDate, booking.advanceAmount, booking.propertyId, booking.roomSelection, booking.foodPreference,
+      booking.foodAdultTariff, booking.foodChildTariff,
       booking.dietaryRestrictions, booking.specialRequest, booking.communicationTransport, booking.b2bAgencyName,
       booking.settlement, booking.paymentStatus, booking.mutedReminders, booking.createdAt,
       booking.totalNights, booking.totalPax, booking.totalAdultTariff, booking.totalChildTariff, booking.finalTariff,
@@ -210,8 +239,9 @@ async function updateBooking(bookingId, booking) {
         "dietaryRestrictions" = $15, "specialRequest" = $16, "communicationTransport" = $17, "b2bAgencyName" = $18,
         "settlement" = $19, "paymentStatus" = $20, "mutedReminders" = $21,
         "totalNights" = $22, "totalPax" = $23, "totalAdultTariff" = $24, "totalChildTariff" = $25, "finalTariff" = $26,
-        "pendingAmount" = $27, "foodingTotal" = $28, "lodgingTotal" = $29
-      WHERE "bookingId" = $30
+        "pendingAmount" = $27, "foodingTotal" = $28, "lodgingTotal" = $29,
+        "propertyId" = $30, "foodAdultTariff" = $31, "foodChildTariff" = $32
+      WHERE "bookingId" = $33
       RETURNING *
     `, [
       booking.guestName, booking.mobileNumber, booking.bookingDate, booking.typeOfBooking,
@@ -220,7 +250,8 @@ async function updateBooking(bookingId, booking) {
       booking.dietaryRestrictions, booking.specialRequest, booking.communicationTransport, booking.b2bAgencyName,
       booking.settlement, booking.paymentStatus, booking.mutedReminders,
       booking.totalNights, booking.totalPax, booking.totalAdultTariff, booking.totalChildTariff, booking.finalTariff,
-      booking.pendingAmount, booking.foodingTotal, booking.lodgingTotal, bookingId
+      booking.pendingAmount, booking.foodingTotal, booking.lodgingTotal,
+      booking.propertyId, booking.foodAdultTariff, booking.foodChildTariff, bookingId
     ]);
     return result.rows.length > 0 ? convertDatabaseRowToBooking(result.rows[0]) : null;
   } catch (err) {
@@ -240,7 +271,7 @@ async function deleteBooking(bookingId) {
 }
 
 // Check for room overlaps
-async function checkRoomOverlaps(checkInStr, checkOutStr, roomsStr, ignoreBookingId = null) {
+async function checkRoomOverlaps(checkInStr, checkOutStr, roomsStr, ignoreBookingId = null, propertyId = null) {
   try {
     const checkIn = new Date(checkInStr);
     const checkOut = new Date(checkOutStr);
@@ -254,9 +285,13 @@ async function checkRoomOverlaps(checkInStr, checkOutStr, roomsStr, ignoreBookin
     `;
     const params = [checkOutStr, checkInStr];
 
+    if (propertyId) {
+      params.push(propertyId);
+      query += ` AND "propertyId" = $${params.length}`;
+    }
     if (ignoreBookingId) {
-      query += ` AND "bookingId" != $3`;
       params.push(ignoreBookingId);
+      query += ` AND "bookingId" != $${params.length}`;
     }
 
     const result = await pool.query(query, params);
@@ -331,8 +366,14 @@ function computeBookingFields(data) {
 
   const pendingAmount = finalTariff - advanceAmount;
 
-  const foodingTotal = 400 * totalPax * totalNights;
-  const lodgingTotal = finalTariff - foodingTotal;
+  const foodAdultTariff = data.foodAdultTariff == null ? 400 : (parseFloat(data.foodAdultTariff) || 0);
+  const foodChildTariff = data.foodChildTariff == null ? 400 : (parseFloat(data.foodChildTariff) || 0);
+  let foodingTotal = (numberAdults * foodAdultTariff + numberChildren5Plus * foodChildTariff) * totalNights;
+  let lodgingTotal = finalTariff - foodingTotal;
+  if (data.paymentStatus === 'No Show') {
+    foodingTotal = 0;
+    lodgingTotal = advanceAmount;
+  }
 
   return {
     totalNights,
@@ -353,7 +394,12 @@ async function getProperties() {
     return result.rows.map(row => ({
       id: row.propertyId,
       name: row.name,
-      rooms: row.rooms
+      rooms: row.rooms,
+      logo: row.logo || null,
+      foodAdultTariff: Number(row.foodAdultTariff ?? 400),
+      foodChildTariff: Number(row.foodChildTariff ?? 400),
+      businessYearEndDate: row.businessYearEndDate || '',
+      configurationHistory: row.configurationHistory || []
     }));
   } catch (err) {
     console.error('Failed to read properties:', err);
@@ -361,25 +407,58 @@ async function getProperties() {
   }
 }
 
+function getPropertyConfiguration(property, date) {
+  const history = [...(property?.configurationHistory || [])]
+    .filter(configuration => configuration.effectiveFrom)
+    .sort((left, right) => left.effectiveFrom.localeCompare(right.effectiveFrom));
+  const configuration = history.filter(item => !date || item.effectiveFrom <= date).at(-1);
+  return configuration || {
+    rooms: property?.rooms || [],
+    foodAdultTariff: property?.foodAdultTariff ?? 400,
+    foodChildTariff: property?.foodChildTariff ?? 400
+  };
+}
+
 // Insert property
 async function insertProperty(property) {
   try {
     const result = await pool.query(`
-      INSERT INTO properties ("propertyId", "name", "rooms")
-      VALUES ($1, $2, $3)
+      INSERT INTO properties ("propertyId", "name", "rooms", "logo", "foodAdultTariff", "foodChildTariff", "businessYearEndDate", "configurationHistory")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
-    `, [property.id, property.name, property.rooms]);
+    `, [property.id, property.name, property.rooms, property.logo || null,
+      property.foodAdultTariff ?? 400, property.foodChildTariff ?? 400,
+      property.businessYearEndDate || null, JSON.stringify(property.configurationHistory || [])]);
 
     const row = result.rows[0];
     return {
       id: row.propertyId,
       name: row.name,
-      rooms: row.rooms
+      rooms: row.rooms,
+      logo: row.logo || null,
+      foodAdultTariff: Number(row.foodAdultTariff ?? 400),
+      foodChildTariff: Number(row.foodChildTariff ?? 400),
+      businessYearEndDate: row.businessYearEndDate || '',
+      configurationHistory: row.configurationHistory || []
     };
   } catch (err) {
     console.error('Failed to insert property:', err);
     throw err;
   }
+}
+
+async function updatePropertyLogo(propertyId, logo) {
+  const result = await pool.query(`
+    UPDATE properties SET "logo" = $1 WHERE "propertyId" = $2 RETURNING *
+  `, [logo, propertyId]);
+  const row = result.rows[0];
+  return row ? {
+    id: row.propertyId, name: row.name, rooms: row.rooms, logo: row.logo || null,
+    foodAdultTariff: Number(row.foodAdultTariff ?? 400),
+    foodChildTariff: Number(row.foodChildTariff ?? 400),
+    businessYearEndDate: row.businessYearEndDate || '',
+    configurationHistory: row.configurationHistory || []
+  } : null;
 }
 
 // Update property rooms
@@ -404,6 +483,70 @@ async function updatePropertyRooms(propertyId, rooms) {
   }
 }
 
+async function updatePropertyConfiguration(propertyId, configuration) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query('SELECT * FROM properties WHERE "propertyId" = $1 FOR UPDATE', [propertyId]);
+    const current = currentResult.rows[0];
+    if (!current) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const effectiveFrom = configuration.effectiveFrom;
+    let history = current.configurationHistory || [];
+    if (history.length === 0) {
+      history = [{
+        effectiveFrom: '1900-01-01',
+        rooms: current.rooms,
+        foodAdultTariff: Number(current.foodAdultTariff ?? 400),
+        foodChildTariff: Number(current.foodChildTariff ?? 400)
+      }];
+    }
+
+    const nextConfiguration = {
+      effectiveFrom,
+      rooms: configuration.rooms,
+      foodAdultTariff: Number(configuration.foodAdultTariff),
+      foodChildTariff: Number(configuration.foodChildTariff)
+    };
+    const existingIndex = history.findIndex(item => item.effectiveFrom === effectiveFrom);
+    if (existingIndex >= 0) history[existingIndex] = nextConfiguration;
+    else history.push(nextConfiguration);
+    history.sort((left, right) => left.effectiveFrom.localeCompare(right.effectiveFrom));
+
+    const result = await client.query(`
+      UPDATE properties SET "rooms" = $1, "foodAdultTariff" = $2, "foodChildTariff" = $3,
+        "configurationHistory" = $4::jsonb
+      WHERE "propertyId" = $5 RETURNING *
+    `, [configuration.rooms, nextConfiguration.foodAdultTariff, nextConfiguration.foodChildTariff,
+      JSON.stringify(history), propertyId]);
+    await client.query('COMMIT');
+    const row = result.rows[0];
+    return {
+      id: row.propertyId, name: row.name, rooms: row.rooms, logo: row.logo || null,
+      foodAdultTariff: Number(row.foodAdultTariff ?? 400),
+      foodChildTariff: Number(row.foodChildTariff ?? 400),
+      businessYearEndDate: row.businessYearEndDate || '',
+      configurationHistory: row.configurationHistory || []
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function updateBusinessYearEndDate(propertyId, businessYearEndDate) {
+  const result = await pool.query(`
+    UPDATE properties SET "businessYearEndDate" = $1
+    WHERE "propertyId" = $2 RETURNING *
+  `, [businessYearEndDate || null, propertyId]);
+  return result.rows[0] || null;
+}
+
 // Delete property
 async function deleteProperty(propertyId) {
   try {
@@ -423,6 +566,8 @@ async function getExpenses() {
       description: row.description,
       expenseDate: row.expenseDate,
       amount: parseFloat(row.amount),
+      propertyId: row.propertyId || '',
+      expenseType: row.expenseType || 'Opex',
       createdAt: row.createdAt
     }));
   } catch (err) {
@@ -435,10 +580,11 @@ async function getExpenses() {
 async function insertExpense(expense) {
   try {
     const result = await pool.query(`
-      INSERT INTO expenses (id, "description", "expenseDate", "amount")
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO expenses (id, "description", "expenseDate", "amount", "propertyId", "expenseType")
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [expense.id, expense.description, expense.expenseDate, expense.amount]);
+    `, [expense.id, expense.description, expense.expenseDate, expense.amount,
+      expense.propertyId || null, expense.expenseType || 'Opex']);
 
     const row = result.rows[0];
     return {
@@ -446,6 +592,8 @@ async function insertExpense(expense) {
       description: row.description,
       expenseDate: row.expenseDate,
       amount: parseFloat(row.amount),
+      propertyId: row.propertyId || '',
+      expenseType: row.expenseType || 'Opex',
       createdAt: row.createdAt
     };
   } catch (err) {
@@ -534,8 +682,12 @@ module.exports = {
   generateBookingId,
   computeBookingFields,
   getProperties,
+  getPropertyConfiguration,
   insertProperty,
+  updatePropertyLogo,
   updatePropertyRooms,
+  updatePropertyConfiguration,
+  updateBusinessYearEndDate,
   deleteProperty,
   getExpenses,
   insertExpense,

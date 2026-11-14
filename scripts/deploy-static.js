@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const base = process.env.VITE_BASE || '/bookingapp/';
+const base = process.env.VITE_BASE || '/booking-app/';
 const repoRoot = process.cwd();
 const frontendDist = path.join(repoRoot, 'frontend', 'dist');
 

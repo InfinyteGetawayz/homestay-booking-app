@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Bell, Download, RefreshCw, AlertTriangle, Key, Plus, Trash2, Settings as SetIcon } from 'lucide-react';
 import { API_BASE } from '../apiBase';
+import { getPropertyConfiguration } from '../utils/property';
+
+const localDateString = date => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -43,6 +51,8 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
   const [propertyLogo, setPropertyLogo] = useState('');
   const [foodAdultTariff, setFoodAdultTariff] = useState(400);
   const [foodChildTariff, setFoodChildTariff] = useState(200);
+  const [configurationEffectiveFrom, setConfigurationEffectiveFrom] = useState(localDateString(new Date()));
+  const [businessYearEndDate, setBusinessYearEndDate] = useState('');
   const [propertyMessage, setPropertyMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
@@ -80,12 +90,15 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
       setProperties(data);
       localStorage.setItem('properties_cache', JSON.stringify(data));
       onPropertiesChanged?.(data);
-      if (data.length > 0 && !selectedPropId) {
-        setSelectedPropId(data[0].id);
-        setRoomConfigString(data[0].rooms.join(', '));
-        setPropertyLogo(data[0].logo || '');
-        setFoodAdultTariff(data[0].foodAdultTariff ?? 400);
-        setFoodChildTariff(data[0].foodChildTariff ?? 200);
+      if (data.length > 0) {
+        const selected = data.find(property => property.id === selectedPropId) || data[0];
+        const configuration = getPropertyConfiguration(selected);
+        setSelectedPropId(selected.id);
+        setRoomConfigString((configuration.rooms || selected.rooms || []).join(', '));
+        setPropertyLogo(selected.logo || '');
+        setFoodAdultTariff(configuration.foodAdultTariff ?? selected.foodAdultTariff ?? 400);
+        setFoodChildTariff(configuration.foodChildTariff ?? selected.foodChildTariff ?? 200);
+        setBusinessYearEndDate(selected.businessYearEndDate || '');
       }
     } catch (e) {
       console.error('Failed to fetch properties:', e);
@@ -283,10 +296,12 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     setSelectedPropId(propId);
     const prop = properties.find(p => p.id === propId);
     if (prop) {
-      setRoomConfigString(prop.rooms.join(', '));
+      const configuration = getPropertyConfiguration(prop);
+      setRoomConfigString((configuration.rooms || prop.rooms || []).join(', '));
       setPropertyLogo(prop.logo || '');
-      setFoodAdultTariff(prop.foodAdultTariff ?? 400);
-      setFoodChildTariff(prop.foodChildTariff ?? 200);
+      setFoodAdultTariff(configuration.foodAdultTariff ?? prop.foodAdultTariff ?? 400);
+      setFoodChildTariff(configuration.foodChildTariff ?? prop.foodChildTariff ?? 200);
+      setBusinessYearEndDate(prop.businessYearEndDate || '');
     }
   };
 
@@ -306,10 +321,10 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     const prop = properties.find(p => p.id === selectedPropId);
     if (!prop) return;
     try {
-      const res = await fetch(`${API_BASE}/properties`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/properties/${selectedPropId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ id: prop.id, name: prop.name, rooms: prop.rooms, logo: propertyLogo, foodAdultTariff, foodChildTariff })
+        body: JSON.stringify({ logo: propertyLogo })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save logo.');
@@ -326,6 +341,9 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     if (!selectedPropId) {
       return setPropertyMessage({ type: 'error', text: 'Select a property first.' });
     }
+    if (!configurationEffectiveFrom) {
+      return setPropertyMessage({ type: 'error', text: 'Select the date this configuration takes effect.' });
+    }
 
     // Split and sanitize room strings
     const rooms = roomConfigString
@@ -340,17 +358,39 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ rooms })
+        body: JSON.stringify({
+          rooms,
+          foodAdultTariff: Number(foodAdultTariff),
+          foodChildTariff: Number(foodChildTariff),
+          effectiveFrom: configurationEffectiveFrom
+        })
       });
       const data = await res.json();
       if (res.ok) {
-        setPropertyMessage({ type: 'success', text: 'Room configurations updated successfully!' });
+        setPropertyMessage({ type: 'success', text: 'Dated room and food tariff configuration saved.' });
         fetchProperties();
       } else {
         setPropertyMessage({ type: 'error', text: data.error || 'Failed to save room config.' });
       }
     } catch (err) {
       setPropertyMessage({ type: 'error', text: 'Server connection error.' });
+    }
+  };
+
+  const handleSaveBusinessYearEnd = async () => {
+    if (!selectedPropId) return setPropertyMessage({ type: 'error', text: 'Select a property first.' });
+    try {
+      const res = await fetch(`${API_BASE}/properties/${selectedPropId}/business-year`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ businessYearEndDate })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save business-year end date.');
+      setPropertyMessage({ type: 'success', text: 'Business-year end date saved for this homestay.' });
+      fetchProperties();
+    } catch (err) {
+      setPropertyMessage({ type: 'error', text: err.message || 'Server connection error.' });
     }
   };
 
@@ -505,6 +545,21 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
             </div>
 
             <div className="form-group" style={{ marginBottom: 4 }}>
+              <label>Business Year End Date</label>
+              <input type="date" className="form-control" value={businessYearEndDate} onChange={event => setBusinessYearEndDate(event.target.value)} />
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>The next business year starts the following day. This date applies only to the selected homestay.</p>
+              <button type="button" className="btn btn-secondary" onClick={handleSaveBusinessYearEnd} style={{ padding: '8px', fontSize: '0.85rem' }}>
+                Save Business Year End Date
+              </button>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 4 }}>
+              <label>Room and Food Tariffs Effective From</label>
+              <input type="date" className="form-control" value={configurationEffectiveFrom} onChange={event => setConfigurationEffectiveFrom(event.target.value)} required />
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Bookings before this date keep the earlier configuration.</p>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 4 }}>
               <label>Room Labels (comma-separated)</label>
               <input 
                 type="text" 
@@ -518,7 +573,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ padding: '8px', fontSize: '0.85rem' }}>
-              Save Room Configuration
+              Save Dated Room and Food Configuration
             </button>
 
             <div className="form-row">
@@ -531,10 +586,6 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
                 <input type="number" min="0" step="0.01" className="form-control" value={foodChildTariff} onChange={e => setFoodChildTariff(e.target.value)} />
               </div>
             </div>
-            <button type="button" onClick={handleSaveLogo} className="btn btn-secondary" style={{ padding: '8px', fontSize: '0.85rem' }}>
-              Save Food Tariffs
-            </button>
-
             <label>Homestay Logo</label>
             <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} />
             {propertyLogo && <img src={propertyLogo} alt="Selected homestay logo" style={{ maxWidth: '180px', maxHeight: '80px', objectFit: 'contain' }} />}

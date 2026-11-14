@@ -5,8 +5,10 @@ async function addExpense(input) {
   const item = {
     id: `EXP-${crypto.randomBytes(4).toString('hex')}`,
     description: String(input.description || '').trim(),
-    expenseDate: input.expenseDate || '',
+    expenseDate: input.expenseDate || null,
     amount: Number(input.amount || 0),
+    propertyId: String(input.propertyId || ''),
+    expenseType: input.expenseType === 'Capex' ? 'Capex' : 'Opex',
     createdAt: new Date().toISOString()
   };
 

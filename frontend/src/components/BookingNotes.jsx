@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ClipboardList, Copy } from 'lucide-react';
+import { getBookingPropertyId } from '../utils/property';
 
 const formatDate = value => {
   if (!value) return '-';
@@ -7,8 +8,9 @@ const formatDate = value => {
   return `${day}-${month}-${year}`;
 };
 
-const buildNotes = (bookings, month) => bookings
-  .filter(booking => String(booking.checkInDate || '').startsWith(month))
+const buildNotes = (bookings, month, propertyId, properties) => bookings
+  .filter(booking => String(booking.checkInDate || '').startsWith(month)
+    && (propertyId === 'ALL' || getBookingPropertyId(booking, properties) === propertyId))
   .sort((a, b) => String(a.checkInDate).localeCompare(String(b.checkInDate)))
   .map(booking => [
     `Guest : *${booking.guestName || '-'}*`,
@@ -24,11 +26,12 @@ const buildNotes = (bookings, month) => bookings
     `Car : *${booking.communicationTransport || '-'}*`,
   ].join('\n')).join('\n\n');
 
-export default function BookingNotes({ bookings = [] }) {
+export default function BookingNotes({ bookings = [], properties = [] }) {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [month, setMonth] = useState(currentMonth);
+  const [propertyId, setPropertyId] = useState('ALL');
   const [copied, setCopied] = useState(false);
-  const notes = useMemo(() => buildNotes(bookings, month), [bookings, month]);
+  const notes = useMemo(() => buildNotes(bookings, month, propertyId, properties), [bookings, month, propertyId, properties]);
 
   const copyNotes = async () => {
     await navigator.clipboard.writeText(notes || 'No bookings found for this month.');
@@ -43,6 +46,13 @@ export default function BookingNotes({ bookings = [] }) {
           <ClipboardList size={20} /> Monthly Booking Notes
         </h2>
         <div className="form-group" style={{ marginTop: '14px' }}>
+          <label htmlFor="notes-property">Homestay</label>
+          <select id="notes-property" className="form-control" value={propertyId} onChange={event => setPropertyId(event.target.value)}>
+            <option value="ALL">All homestays</option>
+            {properties.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
           <label>Booking Month</label>
           <input type="month" className="form-control" value={month} onChange={event => setMonth(event.target.value)} />
         </div>

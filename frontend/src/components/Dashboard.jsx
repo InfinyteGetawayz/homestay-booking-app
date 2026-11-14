@@ -103,24 +103,17 @@ export default function Dashboard({ bookings = [], properties = [], token, onSel
 
   // Metrics
   const metrics = useMemo(() => {
-    const total = bookings.length;
     const completed = bookings.filter(b => b.paymentStatus === 'Completed Stay' || b.paymentStatus === 'Completed').length;
     const pending = bookings.filter(b => b.paymentStatus === 'Pending').length;
-    const noShow = bookings.filter(b => b.paymentStatus === 'No Show').length;
 
     // Monthly revenue (sum finalTariff for check-in in the current month)
     const currentMonthPrefix = new Date().toISOString().substring(0, 7); // "YYYY-MM"
     const amount = booking => Number(booking.finalTariff || 0);
-    const lodging = booking => booking.paymentStatus === 'No Show' ? Number(booking.advanceAmount || 0) : Number(booking.lodgingTotal || 0);
-    const fooding = booking => booking.paymentStatus === 'No Show' ? 0 : Number(booking.foodingTotal || 0);
     const monthlyRev = bookings
       .filter(b => String(b.checkInDate || '').startsWith(currentMonthPrefix) && b.paymentStatus !== 'No Show')
       .reduce((sum, b) => sum + amount(b), 0);
-    const totalLodging = bookings.reduce((sum, b) => sum + lodging(b), 0);
-    const totalFooding = bookings.reduce((sum, b) => sum + fooding(b), 0);
-    const totalBooking = bookings.reduce((sum, b) => sum + amount(b), 0);
 
-    return { total, completed, pending, noShow, monthlyRev, totalLodging, totalFooding, totalBooking };
+    return { completed, pending, monthlyRev };
   }, [bookings]);
 
   // Worker Ledger filter
@@ -231,21 +224,7 @@ export default function Dashboard({ bookings = [], properties = [], token, onSel
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Completed</span>
                 <span style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-teal)' }}>{metrics.completed}</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gridColumn: 'span 2', borderTop: '1px solid var(--border-color)', paddingTop: '4px' }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>No Shows: {metrics.noShow} | Total: {metrics.total}</span>
-              </div>
             </div>
-            {[
-              ['Total Lodging Amount', metrics.totalLodging, '#0f766e'],
-              ['Total Fooding Amount', metrics.totalFooding, '#b45309'],
-              ['Total Booking Amount', metrics.totalBooking, '#1d4ed8']
-            ].map(([label, value, color]) => (
-              <div key={label} className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{label}</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: '700', color }}>₹{value.toFixed(2)}</span>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>All records to date</span>
-              </div>
-            ))}
           </div>
 
           {/* Today's Highlights */}

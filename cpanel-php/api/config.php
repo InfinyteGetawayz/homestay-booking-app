@@ -44,7 +44,25 @@ function ensureSchema() {
     while ($mysqli->more_results()) {
         $mysqli->next_result();
     }
+    ensureColumn($mysqli, 'properties', 'business_year_end_date', 'DATE DEFAULT NULL');
+    ensureColumn($mysqli, 'properties', 'configuration_history', 'JSON DEFAULT NULL');
+    ensureColumn($mysqli, 'bookings', 'property_id', 'VARCHAR(50) DEFAULT NULL');
+    ensureColumn($mysqli, 'bookings', 'food_adult_tariff', 'DECIMAL(10,2) NOT NULL DEFAULT 400');
+    ensureColumn($mysqli, 'bookings', 'food_child_tariff', 'DECIMAL(10,2) NOT NULL DEFAULT 200');
+    ensureColumn($mysqli, 'expenses', 'property_id', 'VARCHAR(50) DEFAULT NULL');
+    ensureColumn($mysqli, 'expenses', 'expense_type', "VARCHAR(20) NOT NULL DEFAULT 'Opex'");
     $mysqli->close();
+}
+
+function ensureColumn($mysqli, $table, $column, $definition) {
+    $stmt = $mysqli->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+    $stmt->bind_param('s', $column);
+    $stmt->execute();
+    $exists = $stmt->get_result()->num_rows > 0;
+    $stmt->close();
+    if (!$exists) {
+        $mysqli->query("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+    }
 }
 
 function jsonResponse($payload, $status = 200) {
@@ -61,6 +79,34 @@ function parseJsonBody() {
     }
     $data = json_decode($raw, true);
     return is_array($data) ? $data : [];
+}
+
+function getPropertyConfigurationHistory($row) {
+    $history = json_decode((string) ($row['configuration_history'] ?? ''), true);
+    if (is_array($history) && count($history) > 0) {
+        return $history;
+    }
+    return [[
+        'effectiveFrom' => '1900-01-01',
+        'rooms' => json_decode($row['rooms'] ?? '[]', true) ?: [],
+        'foodAdultTariff' => (float) ($row['food_adult_tariff'] ?? 400),
+        'foodChildTariff' => (float) ($row['food_child_tariff'] ?? 200),
+    ]];
+}
+
+function getPropertyConfigurationForDate($row, $date) {
+    $selected = null;
+    foreach (getPropertyConfigurationHistory($row) as $configuration) {
+        if (!empty($configuration['effectiveFrom']) && $configuration['effectiveFrom'] <= $date
+            && (!$selected || $configuration['effectiveFrom'] > $selected['effectiveFrom'])) {
+            $selected = $configuration;
+        }
+    }
+    return $selected ?: [
+        'rooms' => json_decode($row['rooms'] ?? '[]', true) ?: [],
+        'foodAdultTariff' => (float) ($row['food_adult_tariff'] ?? 400),
+        'foodChildTariff' => (float) ($row['food_child_tariff'] ?? 200),
+    ];
 }
 
 function readConfigValue($key, $default = null) {
@@ -142,8 +188,11 @@ function normalizeBooking($row) {
         'checkInDate' => $row['check_in_date'],
         'checkOutDate' => $row['check_out_date'],
         'advanceAmount' => (float) $row['advance_amount'],
+        'propertyId' => $row['property_id'] ?? '',
         'roomSelection' => $row['room_selection'],
         'foodPreference' => $row['food_preference'],
+        'foodAdultTariff' => (float) ($row['food_adult_tariff'] ?? 400),
+        'foodChildTariff' => (float) ($row['food_child_tariff'] ?? 200),
         'dietaryRestrictions' => $row['dietary_restrictions'],
         'specialRequest' => $row['special_request'],
         'communicationTransport' => $row['communication_transport'],
@@ -191,7 +240,7 @@ function computeBookingFields(array $data): array {
     $lodgingTotal = $finalTariff - $foodingTotal;
 
     if (($data['paymentStatus'] ?? $data['payment_status'] ?? '') === 'No Show') {
-        $lodgingTotal = $finalTariff;
+        $lodgingTotal = $advance;
         $foodingTotal = 0;
     }
 

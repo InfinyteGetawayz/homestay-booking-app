@@ -2,17 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Receipt } from 'lucide-react';
 import { API_BASE } from '../apiBase';
 
-export default function Expenses({ token }) {
+const localDateString = date => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export default function Expenses({ token, properties = [] }) {
   const [items, setItems] = useState([]);
   const [description, setDescription] = useState('');
-  const [expenseDate, setExpenseDate] = useState('');
+  const [expenseDate, setExpenseDate] = useState(localDateString(new Date()));
   const [amount, setAmount] = useState('');
+  const [propertyId, setPropertyId] = useState('');
+  const [expenseType, setExpenseType] = useState('Opex');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     fetchExpenses();
   }, []);
+
+  useEffect(() => {
+    if (!propertyId && properties.length > 0) setPropertyId(properties[0].id);
+  }, [properties, propertyId]);
 
   const fetchExpenses = async () => {
     setLoading(true);
@@ -35,8 +48,8 @@ export default function Expenses({ token }) {
     e.preventDefault();
     setMessage({ type: '', text: '' });
 
-    if (!description.trim() || !amount) {
-      setMessage({ type: 'error', text: 'Please enter an expense name and amount.' });
+    if (!description.trim() || !amount || !propertyId) {
+      setMessage({ type: 'error', text: 'Enter an expense name and amount, and select a homestay.' });
       return;
     }
 
@@ -50,15 +63,18 @@ export default function Expenses({ token }) {
         body: JSON.stringify({
           description: description.trim(),
           expenseDate: expenseDate || '' ,
-          amount: Number(amount)
+          amount: Number(amount),
+          propertyId,
+          expenseType
         })
       });
       const data = await res.json();
       if (res.ok) {
         setItems(prev => [data, ...prev]);
         setDescription('');
-        setExpenseDate('');
+        setExpenseDate(localDateString(new Date()));
         setAmount('');
+        setExpenseType('Opex');
         setMessage({ type: 'success', text: 'Expense added.' });
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to add expense.' });
@@ -99,6 +115,14 @@ export default function Expenses({ token }) {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Item / purpose"
           />
+          <select className="form-control" value={propertyId} onChange={event => setPropertyId(event.target.value)} required>
+            <option value="" disabled>Select homestay</option>
+            {properties.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}
+          </select>
+          <select className="form-control" value={expenseType} onChange={event => setExpenseType(event.target.value)}>
+            <option value="Opex">Opex</option>
+            <option value="Capex">Capex</option>
+          </select>
           <input
             className="form-control"
             type="date"
@@ -139,6 +163,8 @@ export default function Expenses({ token }) {
                 <div>
                   <div style={{ fontWeight: '600' }}>{item.description}</div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                    {properties.find(property => property.id === item.propertyId)?.name || 'Unassigned'}
+                    {' · '}{item.expenseType || 'Opex'}{' · '}
                     {item.expenseDate ? new Date(item.expenseDate + 'T00:00:00').toLocaleDateString() : 'No date'}
                   </div>
                 </div>

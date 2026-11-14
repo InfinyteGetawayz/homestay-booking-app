@@ -1,4 +1,4 @@
-const CACHE_NAME = 'infinite-getaways-v1';
+const CACHE_NAME = 'infinite-getaways-v2';
 // Service worker runs in worker context — avoid import.meta and window APIs here.
 const base = self.registration.scope || '/';
 const STATIC_ASSETS = [

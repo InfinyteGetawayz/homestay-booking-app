@@ -27,7 +27,8 @@ if (!fs.existsSync(BACKUPS_DIR)) {
 const COLUMNS = [
   'bookingId', 'guestName', 'mobileNumber', 'bookingDate', 'typeOfBooking',
   'perAdultTariff', 'perChildTariff', 'numberAdults', 'numberChildren5Plus', 'numberChildrenUnder5',
-  'checkInDate', 'checkOutDate', 'advanceAmount', 'roomSelection', 'foodPreference',
+  'checkInDate', 'checkOutDate', 'advanceAmount', 'propertyId', 'roomSelection', 'foodPreference',
+  'foodAdultTariff', 'foodChildTariff',
   'dietaryRestrictions', 'specialRequest', 'communicationTransport', 'b2bAgencyName',
   'settlement', 'paymentStatus', 'mutedReminders', 'createdAt',
   'totalNights', 'totalPax', 'totalAdultTariff', 'totalChildTariff', 'finalTariff',
@@ -141,7 +142,7 @@ function getBookings() {
         let val = row[idx];
         // Parse types
         if (['perAdultTariff', 'perChildTariff', 'numberAdults', 'numberChildren5Plus', 
-             'numberChildrenUnder5', 'advanceAmount', 'totalNights', 'totalPax', 
+             'numberChildrenUnder5', 'advanceAmount', 'foodAdultTariff', 'foodChildTariff', 'totalNights', 'totalPax',
              'totalAdultTariff', 'totalChildTariff', 'finalTariff', 'pendingAmount', 
              'foodingTotal', 'lodgingTotal'].includes(header)) {
           booking[header] = val === '' ? 0 : Number(val);
@@ -228,9 +229,14 @@ function computeBookingFields(data) {
 
   const pendingAmount = finalTariff - advanceAmount;
 
-  // Fooding rate is fixed at 400 per person per night
-  const foodingTotal = 400 * totalPax * totalNights;
-  const lodgingTotal = finalTariff - foodingTotal;
+  const foodAdultTariff = data.foodAdultTariff == null ? 400 : (parseFloat(data.foodAdultTariff) || 0);
+  const foodChildTariff = data.foodChildTariff == null ? 400 : (parseFloat(data.foodChildTariff) || 0);
+  let foodingTotal = (numberAdults * foodAdultTariff + numberChildren5Plus * foodChildTariff) * totalNights;
+  let lodgingTotal = finalTariff - foodingTotal;
+  if (data.paymentStatus === 'No Show') {
+    foodingTotal = 0;
+    lodgingTotal = advanceAmount;
+  }
 
   return {
     totalNights,

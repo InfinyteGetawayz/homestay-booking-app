@@ -97,6 +97,8 @@ switch ($path) {
                     'logo' => $row['logo'] ?? null,
                     'foodAdultTariff' => (float) ($row['food_adult_tariff'] ?? 400),
                     'foodChildTariff' => (float) ($row['food_child_tariff'] ?? 200),
+                    'businessYearEndDate' => $row['business_year_end_date'] ?? '',
+                    'configurationHistory' => getPropertyConfigurationHistory($row),
                 ];
             }
             $mysqli->close();
@@ -130,6 +132,21 @@ switch ($path) {
         break;
 
     case preg_match('#^/properties/([^/]+)$#', $path, $matches) ? $path : '' :
+        if ($method === 'PUT') {
+            requireAuth();
+            $id = $matches[1];
+            $logo = $body['logo'] ?? null;
+            $mysqli = dbConnect();
+            $stmt = $mysqli->prepare('UPDATE properties SET logo = ? WHERE id = ?');
+            $stmt->bind_param('ss', $logo, $id);
+            $stmt->execute();
+            $stmt->close();
+            $result = $mysqli->query("SELECT * FROM properties WHERE id = '" . $mysqli->real_escape_string($id) . "' LIMIT 1");
+            $row = $result ? $result->fetch_assoc() : null;
+            $mysqli->close();
+            if (!$row) jsonResponse(['error' => 'Property not found.'], 404);
+            jsonResponse(['id' => $row['id'], 'name' => $row['name'], 'rooms' => json_decode($row['rooms'], true) ?: [], 'logo' => $row['logo'], 'foodAdultTariff' => (float) $row['food_adult_tariff'], 'foodChildTariff' => (float) $row['food_child_tariff'], 'businessYearEndDate' => $row['business_year_end_date'] ?? '', 'configurationHistory' => getPropertyConfigurationHistory($row)]);
+        }
         if ($method === 'DELETE') {
             requireAuth();
             $id = $matches[1];
@@ -148,13 +165,66 @@ switch ($path) {
             requireAuth();
             $id = $matches[1];
             $rooms = $body['rooms'] ?? [];
+            $effectiveFrom = trim((string) ($body['effectiveFrom'] ?? ''));
+            if (!is_array($rooms) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $effectiveFrom)) {
+                jsonResponse(['error' => 'Room list and effective date are required.'], 400);
+            }
             $mysqli = dbConnect();
-            $stmt = $mysqli->prepare('UPDATE properties SET rooms = ? WHERE id = ?');
-            $jsonRooms = json_encode(array_values($rooms), JSON_UNESCAPED_SLASHES);
-            $stmt->bind_param('ss', $jsonRooms, $id);
+            $lookup = $mysqli->prepare('SELECT * FROM properties WHERE id = ? LIMIT 1');
+            $lookup->bind_param('s', $id);
+            $lookup->execute();
+            $property = $lookup->get_result()->fetch_assoc();
+            $lookup->close();
+            if (!$property) {
+                $mysqli->close();
+                jsonResponse(['error' => 'Property not found.'], 404);
+            }
+            $history = getPropertyConfigurationHistory($property);
+            $configuration = [
+                'effectiveFrom' => $effectiveFrom,
+                'rooms' => array_values($rooms),
+                'foodAdultTariff' => max(0, (float) ($body['foodAdultTariff'] ?? 400)),
+                'foodChildTariff' => max(0, (float) ($body['foodChildTariff'] ?? 200)),
+            ];
+            $found = false;
+            foreach ($history as $index => $item) {
+                if (($item['effectiveFrom'] ?? '') === $effectiveFrom) {
+                    $history[$index] = $configuration;
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) $history[] = $configuration;
+            usort($history, fn($left, $right) => strcmp($left['effectiveFrom'], $right['effectiveFrom']));
+            $jsonRooms = json_encode($configuration['rooms'], JSON_UNESCAPED_SLASHES);
+            $jsonHistory = json_encode($history, JSON_UNESCAPED_SLASHES);
+            $adultRate = $configuration['foodAdultTariff'];
+            $childRate = $configuration['foodChildTariff'];
+            $stmt = $mysqli->prepare('UPDATE properties SET rooms = ?, food_adult_tariff = ?, food_child_tariff = ?, configuration_history = ? WHERE id = ?');
+            $stmt->bind_param('sddss', $jsonRooms, $adultRate, $childRate, $jsonHistory, $id);
             $stmt->execute();
             $stmt->close();
             $mysqli->close();
+            jsonResponse(['success' => true]);
+        }
+        break;
+
+    case preg_match('#^/properties/([^/]+)/business-year$#', $path, $matches) ? $path : '' :
+        if ($method === 'POST') {
+            requireAuth();
+            $id = $matches[1];
+            $endDate = trim((string) ($body['businessYearEndDate'] ?? ''));
+            if ($endDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
+                jsonResponse(['error' => 'Enter a valid business-year end date.'], 400);
+            }
+            $storedEndDate = $endDate === '' ? null : $endDate;
+            $mysqli = dbConnect();
+            $stmt = $mysqli->prepare('UPDATE properties SET business_year_end_date = ? WHERE id = ?');
+            $stmt->bind_param('ss', $storedEndDate, $id);
+            $ok = $stmt->execute();
+            $stmt->close();
+            $mysqli->close();
+            if (!$ok) jsonResponse(['error' => 'Failed to save business-year end date.'], 500);
             jsonResponse(['success' => true]);
         }
         break;
@@ -163,10 +233,27 @@ switch ($path) {
         requireAuth();
         if ($method === 'GET') {
             $mysqli = dbConnect();
+            $propertyResult = $mysqli->query('SELECT * FROM properties ORDER BY name ASC');
+            $propertyRows = [];
+            while ($propertyRow = $propertyResult->fetch_assoc()) $propertyRows[] = $propertyRow;
             $result = $mysqli->query('SELECT * FROM bookings ORDER BY created_at DESC');
             $rows = [];
             while ($row = $result->fetch_assoc()) {
-                $rows[] = normalizeBooking($row);
+                $booking = normalizeBooking($row);
+                if ($booking['propertyId'] === '') {
+                    $bookingRooms = array_map('trim', explode(',', (string) $booking['roomSelection']));
+                    foreach ($propertyRows as $propertyRow) {
+                        $knownRooms = [];
+                        foreach (getPropertyConfigurationHistory($propertyRow) as $configuration) {
+                            $knownRooms = array_merge($knownRooms, $configuration['rooms'] ?? []);
+                        }
+                        if (array_intersect($bookingRooms, $knownRooms)) {
+                            $booking['propertyId'] = $propertyRow['id'];
+                            break;
+                        }
+                    }
+                }
+                $rows[] = $booking;
             }
             $mysqli->close();
             jsonResponse($rows);
@@ -178,7 +265,7 @@ switch ($path) {
             }
 
                 $propertyLookup = dbConnect();
-                $propertyResult = $propertyLookup->query('SELECT id, rooms, food_adult_tariff, food_child_tariff FROM properties');
+                $propertyResult = $propertyLookup->query('SELECT * FROM properties');
                 $props = [];
                 while ($propertyRow = $propertyResult->fetch_assoc()) {
                     $props[] = [
@@ -186,24 +273,40 @@ switch ($path) {
                         'rooms' => json_decode($propertyRow['rooms'], true) ?: [],
                         'foodAdultTariff' => (float) ($propertyRow['food_adult_tariff'] ?? 400),
                         'foodChildTariff' => (float) ($propertyRow['food_child_tariff'] ?? 200),
+                        'row' => $propertyRow,
                     ];
                 }
                 $propertyLookup->close();
                 $selectedRooms = array_map('trim', explode(',', (string) ($payload['roomSelection'] ?? '')));
                 $matchedProperty = null;
                 foreach ($props as $prop) {
-                    if (array_intersect($selectedRooms, $prop['rooms'])) {
+                    if ($prop['id'] === ($payload['propertyId'] ?? '')) {
                         $matchedProperty = $prop;
                         break;
                     }
                 }
-                $payload['foodAdultTariff'] = $matchedProperty['foodAdultTariff'] ?? 400;
-                $payload['foodChildTariff'] = $matchedProperty['foodChildTariff'] ?? 200;
+                foreach ($props as $prop) {
+                    $knownRooms = array_merge($prop['rooms'], ...array_map(
+                        fn($configuration) => $configuration['rooms'] ?? [],
+                        getPropertyConfigurationHistory($prop['row'])
+                    ));
+                    if (!$matchedProperty && array_intersect($selectedRooms, $knownRooms)) {
+                        $matchedProperty = $prop;
+                        break;
+                    }
+                }
+                $propertyId = $matchedProperty['id'] ?? '';
+                $configuration = $matchedProperty
+                    ? getPropertyConfigurationForDate($matchedProperty['row'], $payload['checkInDate'])
+                    : [];
+                $payload['propertyId'] = $propertyId;
+                $payload['foodAdultTariff'] = (float) ($configuration['foodAdultTariff'] ?? 400);
+                $payload['foodChildTariff'] = (float) ($configuration['foodChildTariff'] ?? 200);
                 $computed = computeBookingFields($payload);
             $roomSelection = trim((string) ($payload['roomSelection'] ?? ''));
-            $bookingId = generateBookingId($roomSelection);
+            $bookingId = generateBookingId($propertyId ?: $roomSelection);
             $mysqli = dbConnect();
-            $stmt = $mysqli->prepare('INSERT INTO bookings (booking_id, guest_name, mobile_number, booking_date, type_of_booking, per_adult_tariff, per_child_tariff, number_adults, number_children_5_plus, number_children_under_5, check_in_date, check_out_date, advance_amount, room_selection, food_preference, dietary_restrictions, special_request, communication_transport, b2b_agency_name, settlement, payment_status, muted_reminders, created_at, total_nights, total_pax, total_adult_tariff, total_child_tariff, final_tariff, pending_amount, fooding_total, lodging_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmt = $mysqli->prepare('INSERT INTO bookings (booking_id, guest_name, mobile_number, booking_date, type_of_booking, per_adult_tariff, per_child_tariff, number_adults, number_children_5_plus, number_children_under_5, check_in_date, check_out_date, advance_amount, property_id, room_selection, food_preference, food_adult_tariff, food_child_tariff, dietary_restrictions, special_request, communication_transport, b2b_agency_name, settlement, payment_status, muted_reminders, created_at, total_nights, total_pax, total_adult_tariff, total_child_tariff, final_tariff, pending_amount, fooding_total, lodging_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?)');
             if (!$stmt) {
                 $mysqli->close();
                 jsonResponse(['error' => 'Failed to prepare booking insert.'], 500);
@@ -220,6 +323,8 @@ switch ($path) {
             $checkInDate = $payload['checkInDate'];
             $checkOutDate = $payload['checkOutDate'];
             $advanceAmount = (float) ($payload['advanceAmount'] ?? 0);
+            $foodAdultTariff = (float) ($payload['foodAdultTariff'] ?? 400);
+            $foodChildTariff = (float) ($payload['foodChildTariff'] ?? 200);
             $foodPreference = $payload['foodPreference'] ?? 'Veg';
             $dietaryRestrictions = $payload['dietaryRestrictions'] ?? '';
             $specialRequest = $payload['specialRequest'] ?? '';
@@ -236,7 +341,7 @@ switch ($path) {
             $pendingAmount = $computed['pendingAmount'];
             $foodingTotal = $computed['foodingTotal'];
             $lodgingTotal = $computed['lodgingTotal'];
-            $stmt->bind_param('sssssddiiissdssssssssiiidddddd',
+            $stmt->bind_param('sssssddiiissdsssddssssssiiidddddd',
                 $bookingId,
                 $guestName,
                 $mobileNumber,
@@ -250,8 +355,11 @@ switch ($path) {
                 $checkInDate,
                 $checkOutDate,
                 $advanceAmount,
+                $propertyId,
                 $roomSelection,
                 $foodPreference,
+                $foodAdultTariff,
+                $foodChildTariff,
                 $dietaryRestrictions,
                 $specialRequest,
                 $communicationTransport,
@@ -298,21 +406,31 @@ switch ($path) {
                 jsonResponse(['error' => 'Booking not found.'], 404);
             }
             $payload = array_merge(normalizeBooking($existingRow), $body);
-            $propertyResult = $lookup->query('SELECT rooms, food_adult_tariff, food_child_tariff FROM properties');
+            $propertyResult = $lookup->query('SELECT * FROM properties');
             $requestedRooms = array_map('trim', explode(',', (string) ($payload['roomSelection'] ?? '')));
+            $matchedProperty = null;
             while ($propertyRow = $propertyResult->fetch_assoc()) {
-                $propertyRooms = json_decode($propertyRow['rooms'], true) ?: [];
-                if (array_intersect($requestedRooms, $propertyRooms)) {
-                    $payload['foodAdultTariff'] = (float) ($propertyRow['food_adult_tariff'] ?? 400);
-                    $payload['foodChildTariff'] = (float) ($propertyRow['food_child_tariff'] ?? 200);
+                if (($payload['propertyId'] ?? '') === $propertyRow['id']) {
+                    $matchedProperty = $propertyRow;
                     break;
                 }
+                $knownRooms = [];
+                foreach (getPropertyConfigurationHistory($propertyRow) as $configuration) {
+                    $knownRooms = array_merge($knownRooms, $configuration['rooms'] ?? []);
+                }
+                if (!$matchedProperty && array_intersect($requestedRooms, $knownRooms)) $matchedProperty = $propertyRow;
+            }
+            if ($matchedProperty) {
+                $payload['propertyId'] = $matchedProperty['id'];
+                $configuration = getPropertyConfigurationForDate($matchedProperty, $payload['checkInDate']);
+                $payload['foodAdultTariff'] = (float) ($configuration['foodAdultTariff'] ?? 400);
+                $payload['foodChildTariff'] = (float) ($configuration['foodChildTariff'] ?? 200);
             }
             $lookup->close();
             $computed = computeBookingFields($payload);
             $mysqli = dbConnect();
-            $overlapStmt = $mysqli->prepare('SELECT booking_id, guest_name, check_in_date, check_out_date, room_selection FROM bookings WHERE booking_id <> ? AND check_in_date < ? AND check_out_date > ?');
-            $overlapStmt->bind_param('sss', $id, $payload['checkOutDate'], $payload['checkInDate']);
+            $overlapStmt = $mysqli->prepare('SELECT booking_id, guest_name, check_in_date, check_out_date, room_selection FROM bookings WHERE booking_id <> ? AND (property_id = ? OR property_id IS NULL) AND check_in_date < ? AND check_out_date > ?');
+            $overlapStmt->bind_param('ssss', $id, $payload['propertyId'], $payload['checkOutDate'], $payload['checkInDate']);
             $overlapStmt->execute();
             $overlaps = $overlapStmt->get_result();
             while ($overlap = $overlaps->fetch_assoc()) {
@@ -343,8 +461,8 @@ switch ($path) {
                 $mysqli->close();
                 jsonResponse($updatedBooking ? normalizeBooking($updatedBooking) : ['success' => true, 'bookingId' => $id]);
             }
-            $stmt = $mysqli->prepare('UPDATE bookings SET guest_name = ?, mobile_number = ?, booking_date = ?, type_of_booking = ?, per_adult_tariff = ?, per_child_tariff = ?, number_adults = ?, number_children_5_plus = ?, number_children_under_5 = ?, check_in_date = ?, check_out_date = ?, advance_amount = ?, room_selection = ?, food_preference = ?, dietary_restrictions = ?, special_request = ?, communication_transport = ?, b2b_agency_name = ?, settlement = ?, payment_status = ?, muted_reminders = ?, total_nights = ?, total_pax = ?, total_adult_tariff = ?, total_child_tariff = ?, final_tariff = ?, pending_amount = ?, fooding_total = ?, lodging_total = ? WHERE booking_id = ?');
-            $stmt->bind_param('ssssddiiissdssssssssiiidddddds',
+            $stmt = $mysqli->prepare('UPDATE bookings SET guest_name = ?, mobile_number = ?, booking_date = ?, type_of_booking = ?, per_adult_tariff = ?, per_child_tariff = ?, number_adults = ?, number_children_5_plus = ?, number_children_under_5 = ?, check_in_date = ?, check_out_date = ?, advance_amount = ?, property_id = ?, room_selection = ?, food_preference = ?, food_adult_tariff = ?, food_child_tariff = ?, dietary_restrictions = ?, special_request = ?, communication_transport = ?, b2b_agency_name = ?, settlement = ?, payment_status = ?, muted_reminders = ?, total_nights = ?, total_pax = ?, total_adult_tariff = ?, total_child_tariff = ?, final_tariff = ?, pending_amount = ?, fooding_total = ?, lodging_total = ? WHERE booking_id = ?');
+            $stmt->bind_param('ssssddiiissdsssddssssssiiidddddds',
                 $payload['guestName'],
                 $payload['mobileNumber'],
                 $payload['bookingDate'],
@@ -357,8 +475,11 @@ switch ($path) {
                 $payload['checkInDate'],
                 $payload['checkOutDate'],
                 $payload['advanceAmount'],
+                $payload['propertyId'],
                 $payload['roomSelection'],
                 $payload['foodPreference'],
+                $payload['foodAdultTariff'],
+                $payload['foodChildTariff'],
                 $payload['dietaryRestrictions'],
                 $payload['specialRequest'],
                 $payload['communicationTransport'],
@@ -412,6 +533,8 @@ switch ($path) {
                     'description' => $row['description'],
                     'expenseDate' => $row['expense_date'],
                     'amount' => (float) $row['amount'],
+                    'propertyId' => $row['property_id'] ?? '',
+                    'expenseType' => $row['expense_type'] ?? 'Opex',
                     'createdAt' => $row['created_at'],
                 ];
             }
@@ -422,18 +545,28 @@ switch ($path) {
             $payload = $body;
             $description = trim((string) ($payload['description'] ?? ''));
             $amount = (float) ($payload['amount'] ?? 0);
-            if ($description === '' || is_nan($amount)) {
+            $propertyId = trim((string) ($payload['propertyId'] ?? ''));
+            $expenseType = ($payload['expenseType'] ?? 'Opex') === 'Capex' ? 'Capex' : 'Opex';
+            if ($description === '' || $propertyId === '' || is_nan($amount) || $amount < 0) {
                 jsonResponse(['error' => 'Invalid expense payload'], 400);
             }
             $id = 'EXP-' . strtoupper(bin2hex(random_bytes(4)));
             $mysqli = dbConnect();
-            $stmt = $mysqli->prepare('INSERT INTO expenses (id, description, expense_date, amount) VALUES (?, ?, ?, ?)');
-            $date = $payload['expenseDate'] ?? date('Y-m-d');
-            $stmt->bind_param('sssd', $id, $description, $date, $amount);
+            $stmt = $mysqli->prepare('INSERT INTO expenses (id, description, expense_date, amount, property_id, expense_type) VALUES (?, ?, ?, ?, ?, ?)');
+            $date = !empty($payload['expenseDate']) ? $payload['expenseDate'] : date('Y-m-d');
+            $stmt->bind_param('sssdss', $id, $description, $date, $amount, $propertyId, $expenseType);
             $stmt->execute();
             $stmt->close();
             $mysqli->close();
-            jsonResponse(['id' => $id, 'success' => true], 201);
+            jsonResponse([
+                'id' => $id,
+                'description' => $description,
+                'expenseDate' => $date,
+                'amount' => $amount,
+                'propertyId' => $propertyId,
+                'expenseType' => $expenseType,
+                'createdAt' => date(DATE_ATOM),
+            ], 201);
         }
         break;
 

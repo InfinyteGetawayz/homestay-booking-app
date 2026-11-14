@@ -1,4 +1,5 @@
 const { computeBookingFields } = require('./csvDb');
+const { computeBookingFields: computeDatabaseFields } = require('./database');
 
 const testCases = [
   {
@@ -208,6 +209,23 @@ const testCases = [
       finalTariff: 1000,
       pendingAmount: 800
     }
+  },
+  {
+    name: "Case 11: No Show uses advance paid as lodging",
+    input: {
+      checkInDate: "2026-06-01",
+      checkOutDate: "2026-06-02",
+      numberAdults: 1,
+      numberChildren5Plus: 0,
+      perAdultTariff: 1500,
+      advanceAmount: 500,
+      paymentStatus: "No Show"
+    },
+    expected: {
+      finalTariff: 1500,
+      foodingTotal: 0,
+      lodgingTotal: 500
+    }
   }
 ];
 
@@ -215,14 +233,15 @@ console.log("=== RUNNING HOMESTAY ARITHMETIC UNIT TESTS ===");
 let passed = 0;
 
 testCases.forEach((tc, idx) => {
-  const result = computeBookingFields(tc.input);
   let tcPassed = true;
-
-  Object.keys(tc.expected).forEach(key => {
-    if (result[key] !== tc.expected[key]) {
-      console.error(`❌ [Failed] ${tc.name}: Expected ${key} to be ${tc.expected[key]}, got ${result[key]}`);
-      tcPassed = false;
-    }
+  [computeBookingFields(tc.input), computeDatabaseFields(tc.input)].forEach((result, implementationIndex) => {
+    Object.keys(tc.expected).forEach(key => {
+      if (result[key] !== tc.expected[key]) {
+        const implementation = implementationIndex === 0 ? 'CSV' : 'PostgreSQL';
+        console.error(`❌ [Failed] ${tc.name} (${implementation}): Expected ${key} to be ${tc.expected[key]}, got ${result[key]}`);
+        tcPassed = false;
+      }
+    });
   });
 
   if (tcPassed) {

@@ -168,6 +168,17 @@ app.delete('/api/properties/:id', auth.authMiddleware, async (req, res) => {
   });
 });
 
+app.put('/api/properties/:id', auth.authMiddleware, async (req, res) => {
+  try {
+    const updated = await db.updatePropertyLogo(req.params.id, req.body.logo || null);
+    if (!updated) return res.status(404).json({ error: 'Property not found.' });
+    res.json(updated);
+  } catch (err) {
+    console.error('Property update failed:', err);
+    res.status(500).json({ error: 'Failed to update property.' });
+  }
+});
+
 app.post('/api/properties/:id/rooms', auth.authMiddleware, async (req, res) => {
   const { id } = req.params;
   const { rooms } = req.body;
@@ -185,10 +196,15 @@ app.post('/api/properties/:id/rooms', auth.authMiddleware, async (req, res) => {
         }
         return;
       }
-      await db.updatePropertyRooms(id, rooms);
+      const property = await db.updatePropertyConfiguration(id, {
+        rooms,
+        foodAdultTariff: Number(req.body.foodAdultTariff ?? 400),
+        foodChildTariff: Number(req.body.foodChildTariff ?? 200),
+        effectiveFrom: req.body.effectiveFrom || new Date().toISOString().slice(0, 10)
+      });
       const updatedProps = await db.getProperties();
       if (!res.headersSent) {
-        res.json({ success: true, properties: updatedProps });
+        res.json({ success: true, property, properties: updatedProps });
       }
     } catch (err) {
       console.error('Property update failed:', err);
@@ -197,6 +213,21 @@ app.post('/api/properties/:id/rooms', auth.authMiddleware, async (req, res) => {
       }
     }
   });
+});
+
+app.post('/api/properties/:id/business-year', auth.authMiddleware, async (req, res) => {
+  const date = req.body.businessYearEndDate || null;
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Enter a valid business-year end date.' });
+  }
+  try {
+    const property = await db.updateBusinessYearEndDate(req.params.id, date);
+    if (!property) return res.status(404).json({ error: 'Property not found.' });
+    res.json({ success: true, property });
+  } catch (err) {
+    console.error('Business year update failed:', err);
+    res.status(500).json({ error: 'Failed to save business-year end date.' });
+  }
 });
 
 // --- SETTINGS ENDPOINTS ---
@@ -277,7 +308,18 @@ app.post('/api/bookings', auth.authMiddleware, async (req, res) => {
   await queueBookingOperation(async () => {
     try {
       // Overlapping booking checks
-      const overlap = await db.checkRoomOverlaps(bookingData.checkInDate, bookingData.checkOutDate, bookingData.roomSelection);
+      const props = await db.getProperties();
+      const selectedRoomsList = bookingData.roomSelection.split(',').map(r => r.trim());
+      const matchedProp = props.find(p => p.id === bookingData.propertyId)
+        || props.find(p => selectedRoomsList.some(room => [
+          ...(p.rooms || []),
+          ...(p.configurationHistory || []).flatMap(configuration => configuration.rooms || [])
+        ].includes(room))) || props[0];
+      const propertyId = matchedProp?.id || bookingData.propertyId || '';
+      const propertyConfig = db.getPropertyConfiguration(matchedProp, bookingData.checkInDate);
+      const foodAdultTariff = Number(propertyConfig.foodAdultTariff ?? matchedProp?.foodAdultTariff ?? 400);
+      const foodChildTariff = Number(propertyConfig.foodChildTariff ?? matchedProp?.foodChildTariff ?? 200);
+      const overlap = await db.checkRoomOverlaps(bookingData.checkInDate, bookingData.checkOutDate, bookingData.roomSelection, null, propertyId);
       if (overlap) {
         if (!res.headersSent) {
           res.status(400).json({ 
@@ -287,16 +329,12 @@ app.post('/api/bookings', auth.authMiddleware, async (req, res) => {
         return;
       }
 
-      // Find prefix/property matching selected rooms dynamically
-      const props = await db.getProperties();
-      const selectedRoomsList = bookingData.roomSelection.split(',').map(r => r.trim());
-      const matchedProp = props.find(p => p.rooms.some(r => selectedRoomsList.includes(r))) || props[0];
       const prefix = matchedProp ? matchedProp.id : 'KGH';
 
       const bookingId = await db.generateBookingId(prefix);
       
       // Compute calculated fields
-      const computed = db.computeBookingFields(bookingData);
+      const computed = db.computeBookingFields({ ...bookingData, foodAdultTariff, foodChildTariff });
 
       const newBooking = {
         bookingId,
@@ -312,8 +350,11 @@ app.post('/api/bookings', auth.authMiddleware, async (req, res) => {
         checkInDate: bookingData.checkInDate,
         checkOutDate: bookingData.checkOutDate,
         advanceAmount: parseFloat(bookingData.advanceAmount) || 0,
+        propertyId,
         roomSelection: bookingData.roomSelection,
         foodPreference: bookingData.foodPreference || 'Veg',
+        foodAdultTariff,
+        foodChildTariff,
         dietaryRestrictions: bookingData.dietaryRestrictions || '',
         specialRequest: bookingData.specialRequest || '',
         communicationTransport: bookingData.communicationTransport || 'To Be Arranged',
@@ -371,7 +412,8 @@ app.put('/api/bookings/:id', auth.authMiddleware, async (req, res) => {
       const checkOutToCheck = bookingData.checkOutDate || existing.checkOutDate;
       const roomsToCheck = bookingData.roomSelection || existing.roomSelection;
 
-      const overlap = await db.checkRoomOverlaps(checkInToCheck, checkOutToCheck, roomsToCheck, id);
+      const propertyId = bookingData.propertyId || existing.propertyId || '';
+      const overlap = await db.checkRoomOverlaps(checkInToCheck, checkOutToCheck, roomsToCheck, id, propertyId);
       if (overlap) {
         if (!res.headersSent) {
           res.status(400).json({
@@ -382,7 +424,7 @@ app.put('/api/bookings/:id', auth.authMiddleware, async (req, res) => {
       }
 
       // Compute calculated fields using updated data
-      const updatedInputs = { ...existing, ...bookingData };
+      const updatedInputs = { ...existing, ...bookingData, propertyId };
       const computed = db.computeBookingFields(updatedInputs);
 
       const updatedBooking = {

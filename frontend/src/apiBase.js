@@ -39,10 +39,6 @@ export const resolveApiBase = (env = import.meta.env, location = typeof window !
     return normalizeBase(env.VITE_API_BASE);
   }
 
-  if (env?.BASE_URL && env.BASE_URL !== '/') {
-    return env.BASE_URL.endsWith('/') ? `${env.BASE_URL}api` : `${env.BASE_URL}/api`;
-  }
-
   return inferBaseFromLocation(location);
 };
 

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import BookingForm from './components/BookingForm';
 import BookingDetails from './components/BookingDetails';
-import CalendarScreen from './components/CalendarScreen';
+import CalendarScreen from './components/CalendarGrid';
 import Expenses from './components/Expenses';
 import Accounts from './components/Accounts';
 import Settings from './components/Settings';
 import BookingNotes from './components/BookingNotes';
-import { Home, PlusCircle, Settings as SettingsIcon, Calendar as CalendarIcon, Lock, Wifi, WifiOff, Receipt, BarChart3, ClipboardList } from 'lucide-react';
+import AnnualReport from './components/AnnualReport';
+import { Home, PlusCircle, Lock, Wifi, WifiOff, ClipboardList, Menu, X } from 'lucide-react';
 import { API_BASE } from './apiBase';
 
 const isApiErrorResponse = (response) => response && !response.ok && response.status !== 0;
@@ -40,6 +41,7 @@ export default function App() {
 
   // Routing
   const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'calendar' | 'add' | 'expenses' | 'accounts' | 'settings'
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [editingBooking, setEditingBooking] = useState(null);
 
@@ -166,29 +168,55 @@ export default function App() {
     if (queue.length === 0) return;
 
     setIsSyncing(true);
-    let successCount = 0;
-
-    for (const payload of queue) {
+    const remainingQueue = [];
+    let existingBookings = [];
+    const needsExistingBookingCheck = queue.some(item => !item?.operation || item.operation === 'create');
+    if (needsExistingBookingCheck) {
       try {
         const res = await fetch(`${API_BASE}/bookings`, {
-          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error(`Could not resolve queued bookings (${res.status}).`);
+        existingBookings = await res.json();
+      } catch (err) {
+        console.error('Could not resolve legacy offline bookings:', err);
+        setIsSyncing(false);
+        return;
+      }
+    }
+
+    for (let index = 0; index < queue.length; index += 1) {
+      const item = queue[index];
+      const queuedPayload = item?.operation ? item.payload : item;
+      const legacyMatch = (!item?.operation || item.operation === 'create') && existingBookings.find(booking =>
+        String(booking.mobileNumber || '') === String(queuedPayload.mobileNumber || '')
+        && booking.checkInDate === queuedPayload.checkInDate
+        && booking.checkOutDate === queuedPayload.checkOutDate
+        && String(booking.roomSelection || '').split(',').map(room => room.trim()).sort().join(',')
+          === String(queuedPayload.roomSelection || '').split(',').map(room => room.trim()).sort().join(',')
+      );
+      const isUpdate = (item?.operation === 'update' && item.bookingId && item.payload) || legacyMatch;
+      const bookingId = item?.operation === 'update' ? item.bookingId : legacyMatch?.bookingId;
+      const payload = queuedPayload;
+      try {
+        const res = await fetch(`${API_BASE}/bookings${isUpdate ? `/${encodeURIComponent(bookingId)}` : ''}`, {
+          method: isUpdate ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify(payload)
         });
-        if (res.ok) {
-          successCount++;
+        if (!res.ok) {
+          remainingQueue.push(item);
         }
       } catch (err) {
         console.error('Failed syncing offline booking:', err);
-        break; // Stop syncing if connection drops again
+        remainingQueue.push(...queue.slice(index));
+        break;
       }
     }
 
-    // Keep failed unsynced items in queue
-    const remainingQueue = queue.slice(successCount);
     localStorage.setItem('booking_sync_queue', JSON.stringify(remainingQueue));
 
     setIsSyncing(false);
@@ -511,15 +539,19 @@ export default function App() {
           )}
 
           {currentTab === 'expenses' && (
-            <Expenses token={token} />
+            <Expenses token={token} properties={properties} />
           )}
 
           {currentTab === 'accounts' && (
-            <Accounts token={token} bookings={bookings} />
+            <Accounts token={token} bookings={bookings} properties={properties} />
           )}
 
           {currentTab === 'notes' && (
-            <BookingNotes bookings={bookings} />
+            <BookingNotes bookings={bookings} properties={properties} />
+          )}
+
+          {currentTab === 'annual-report' && (
+            <AnnualReport bookings={bookings} properties={properties} />
           )}
 
           {currentTab === 'settings' && (
@@ -536,7 +568,7 @@ export default function App() {
       {!selectedBooking && (
         <nav className="navbar">
           <button 
-            onClick={() => setCurrentTab('dashboard')} 
+            onClick={() => { setCurrentTab('dashboard'); setIsMenuOpen(false); }}
             className={`nav-item ${currentTab === 'dashboard' ? 'active' : ''}`}
           >
             <Home className="nav-icon" />
@@ -544,52 +576,42 @@ export default function App() {
           </button>
 
           <button 
-            onClick={() => setCurrentTab('calendar')} 
-            className={`nav-item ${currentTab === 'calendar' ? 'active' : ''}`}
-          >
-            <CalendarIcon className="nav-icon" />
-            <span>Calendar</span>
-          </button>
-          
-          <button 
-            onClick={() => setCurrentTab('add')} 
+            onClick={() => { setCurrentTab('add'); setIsMenuOpen(false); }}
             className={`nav-item ${currentTab === 'add' ? 'active' : ''}`}
           >
             <PlusCircle className="nav-icon" />
             <span>Add Guest</span>
           </button>
           
-          <button 
-            onClick={() => setCurrentTab('expenses')} 
-            className={`nav-item ${currentTab === 'expenses' ? 'active' : ''}`}
-          >
-            <Receipt className="nav-icon" />
-            <span>Expenses</span>
-          </button>
-
-          <button 
-            onClick={() => setCurrentTab('accounts')} 
-            className={`nav-item ${currentTab === 'accounts' ? 'active' : ''}`}
-          >
-            <BarChart3 className="nav-icon" />
-            <span>Accounts</span>
-          </button>
-
           <button
-            onClick={() => setCurrentTab('notes')}
+            onClick={() => { setCurrentTab('notes'); setIsMenuOpen(false); }}
             className={`nav-item ${currentTab === 'notes' ? 'active' : ''}`}
           >
             <ClipboardList className="nav-icon" />
             <span>Notes</span>
           </button>
 
-          <button 
-            onClick={() => setCurrentTab('settings')} 
-            className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}
-          >
-            <SettingsIcon className="nav-icon" />
-            <span>Settings</span>
-          </button>
+          <div className="nav-more">
+            {isMenuOpen && (
+              <div className="nav-menu" role="menu" aria-label="More pages">
+                {[
+                  ['calendar', 'Calendar'],
+                  ['expenses', 'Expenses'],
+                  ['accounts', 'Accounts'],
+                  ['annual-report', 'Business Year Totals'],
+                  ['settings', 'Settings']
+                ].map(([tab, label]) => (
+                  <button key={tab} type="button" role="menuitem" className={currentTab === tab ? 'active' : ''} onClick={() => { setCurrentTab(tab); setIsMenuOpen(false); }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button type="button" className={`nav-item ${isMenuOpen ? 'active' : ''}`} aria-label={isMenuOpen ? 'Close menu' : 'Open menu'} aria-haspopup="menu" aria-expanded={isMenuOpen} onClick={() => setIsMenuOpen(value => !value)}>
+              {isMenuOpen ? <X className="nav-icon" /> : <Menu className="nav-icon" />}
+              <span>More</span>
+            </button>
+          </div>
         </nav>
       )}
     </div>

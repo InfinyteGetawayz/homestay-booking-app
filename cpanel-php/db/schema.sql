@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS properties (
   logo LONGTEXT DEFAULT NULL,
   food_adult_tariff DECIMAL(10,2) NOT NULL DEFAULT 400,
   food_child_tariff DECIMAL(10,2) NOT NULL DEFAULT 200,
+  business_year_end_date DATE DEFAULT NULL,
+  configuration_history JSON DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -19,6 +21,8 @@ CREATE TABLE IF NOT EXISTS expenses (
   description TEXT NOT NULL,
   expense_date DATE DEFAULT NULL,
   amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  property_id VARCHAR(50) DEFAULT NULL,
+  expense_type VARCHAR(20) NOT NULL DEFAULT 'Opex',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -36,7 +40,10 @@ CREATE TABLE IF NOT EXISTS bookings (
   check_in_date DATE NOT NULL,
   check_out_date DATE NOT NULL,
   advance_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  property_id VARCHAR(50) DEFAULT NULL,
   room_selection TEXT NOT NULL,
+  food_adult_tariff DECIMAL(10,2) NOT NULL DEFAULT 400,
+  food_child_tariff DECIMAL(10,2) NOT NULL DEFAULT 200,
   food_preference VARCHAR(100) DEFAULT 'Veg',
   dietary_restrictions TEXT DEFAULT '',
   special_request TEXT DEFAULT '',
