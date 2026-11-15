@@ -1,7 +1,15 @@
 <?php
 require __DIR__ . '/config.php';
 
-ensureSchema();
+try {
+    ensureSchema();
+} catch (Throwable $error) {
+    error_log('API schema check failed: ' . $error->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'API database schema check failed.']);
+    exit;
+}
 
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 $uri = parse_url($uri, PHP_URL_PATH) ?: '/';

@@ -36,6 +36,7 @@ export default function App() {
   const [setupConfirmPin, setSetupConfirmPin] = useState('');
   const [loginError, setLoginError] = useState('');
   const [setupError, setSetupError] = useState('');
+  const [authStatusError, setAuthStatusError] = useState('');
 
   // Routing
   const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'calendar' | 'add' | 'expenses' | 'accounts' | 'settings'
@@ -112,7 +113,8 @@ export default function App() {
     const cachedP = readLocalData('properties_cache', null);
 
     if (!navigator.onLine) {
-      setIsPinSetup(Boolean(localPin || cachedB || cachedP));
+      setIsPinSetup(Boolean(localPin));
+      setAuthStatusError(localPin ? '' : 'The server is offline and no saved PIN is available on this device.');
       if (cachedB) setBookings(cachedB);
       if (cachedP) setProperties(cachedP);
       return;
@@ -124,10 +126,15 @@ export default function App() {
         throw new Error(`Auth check failed with status ${res.status}`);
       }
       const data = await res.json();
+      if (typeof data.isSetup !== 'boolean') {
+        throw new Error('Auth status response is invalid.');
+      }
       setIsPinSetup(data.isSetup);
+      setAuthStatusError('');
     } catch (e) {
-      console.error('Auth status fallback to local mode:', e);
-      setIsPinSetup(Boolean(localPin || cachedB || cachedP));
+      console.error('Failed to check server PIN status:', e);
+      setIsPinSetup(Boolean(localPin));
+      setAuthStatusError('Unable to verify the server PIN. Do not initialize a new PIN; check the server connection and retry.');
       if (cachedB) setBookings(cachedB);
       if (cachedP) setProperties(cachedP);
     }
@@ -393,6 +400,20 @@ export default function App() {
   // Render Login or Setup first
   if (!isAuthenticated) {
     if (!isPinSetup) {
+      if (authStatusError) {
+        return (
+          <div className="app-container" style={{ justifyContent: 'center', padding: '24px' }}>
+            <div className="glass-panel" style={{ padding: '24px', textAlign: 'center' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px' }}>Cannot verify server PIN</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--accent-rose)', marginBottom: '20px' }}>{authStatusError}</p>
+              <button type="button" className="btn btn-primary" onClick={checkPinStatus}>
+                Retry connection
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       // First-time setup PIN
       return (
         <div className="app-container" style={{ justifyContent: 'center', padding: '24px' }}>

@@ -32,6 +32,31 @@ function dbConnect() {
 
 function ensureSchema() {
     $mysqli = dbConnect();
+    $existingTables = $mysqli->query("
+        SELECT COUNT(*) AS table_count
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name IN ('app_config', 'properties', 'bookings', 'expenses')
+    ");
+    if (!$existingTables) {
+        $error = $mysqli->error;
+        $mysqli->close();
+        throw new RuntimeException('Failed to inspect application tables: ' . $error);
+    }
+    $tableCount = (int) $existingTables->fetch_assoc()['table_count'];
+    $existingTables->free();
+    if ($tableCount === 4) {
+        ensureColumn($mysqli, 'properties', 'business_year_end_date', 'DATE DEFAULT NULL');
+        ensureColumn($mysqli, 'properties', 'configuration_history', 'JSON DEFAULT NULL');
+        ensureColumn($mysqli, 'bookings', 'property_id', 'VARCHAR(50) DEFAULT NULL');
+        ensureColumn($mysqli, 'bookings', 'food_adult_tariff', 'DECIMAL(10,2) NOT NULL DEFAULT 400');
+        ensureColumn($mysqli, 'bookings', 'food_child_tariff', 'DECIMAL(10,2) NOT NULL DEFAULT 200');
+        ensureColumn($mysqli, 'expenses', 'property_id', 'VARCHAR(50) DEFAULT NULL');
+        ensureColumn($mysqli, 'expenses', 'expense_type', "VARCHAR(20) NOT NULL DEFAULT 'Opex'");
+        $mysqli->close();
+        return;
+    }
+
     $sql = file_get_contents(__DIR__ . '/../db/schema.sql');
     if ($sql === false) {
         $mysqli->close();
@@ -55,12 +80,21 @@ function ensureSchema() {
 }
 
 function ensureColumn($mysqli, $table, $column, $definition) {
-    $stmt = $mysqli->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
-    $stmt->bind_param('s', $column);
+    $stmt = $mysqli->prepare('
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ');
+    if (!$stmt) {
+        throw new RuntimeException('Failed to inspect database column: ' . $mysqli->error);
+    }
+    $stmt->bind_param('ss', $table, $column);
     $stmt->execute();
-    $stmt->store_result();
-    $exists = $stmt->num_rows > 0;
-    $stmt->free_result();
+    $stmt->bind_result($columnCount);
+    $stmt->fetch();
+    $exists = (int) $columnCount > 0;
     $stmt->close();
     if (!$exists) {
         $mysqli->query("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
