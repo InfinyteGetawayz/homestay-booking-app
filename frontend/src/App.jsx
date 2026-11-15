@@ -27,8 +27,6 @@ const writeLocalData = (key, value) => {
 };
 const getLocalPin = () => localStorage.getItem(LOCAL_PIN_KEY) || '';
 const setLocalPin = (pin) => localStorage.setItem(LOCAL_PIN_KEY, pin);
-const clearLocalPin = () => localStorage.removeItem(LOCAL_PIN_KEY);
-
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('auth_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState(!!token);
@@ -50,21 +48,37 @@ export default function App() {
   const [properties, setProperties] = useState([]);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [bookingsLoadError, setBookingsLoadError] = useState(false);
+  const [propertiesLoadError, setPropertiesLoadError] = useState(false);
 
   const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '/') || '/';
 
-  // 1. Initial Checks: auth status, offline listeners, and properties loading
+  // 1. Initial Checks: auth status, offline listeners, and server refreshes
   useEffect(() => {
     checkPinStatus();
     
     const handleOnline = () => {
       setIsOffline(false);
+      fetchProperties();
+      fetchBookings();
       syncOfflineQueue();
     };
     const handleOffline = () => setIsOffline(true);
+    const handleFocus = () => {
+      if (isAuthenticated && navigator.onLine) {
+        fetchProperties();
+        fetchBookings();
+        syncOfflineQueue();
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') handleFocus();
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     if (isAuthenticated) {
       fetchProperties();
@@ -73,22 +87,34 @@ export default function App() {
         syncOfflineQueue();
       }
     }
+    const refreshInterval = isAuthenticated
+      ? window.setInterval(() => {
+          if (navigator.onLine) {
+            fetchProperties();
+            fetchBookings();
+            syncOfflineQueue();
+          }
+        }, 30000)
+      : null;
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (refreshInterval) window.clearInterval(refreshInterval);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, token]);
 
   const checkPinStatus = async () => {
     const localPin = getLocalPin();
-    const cachedB = localStorage.getItem('bookings_cache');
-    const cachedP = localStorage.getItem('properties_cache');
+    const cachedB = readLocalData('bookings_cache', null);
+    const cachedP = readLocalData('properties_cache', null);
 
-    if (isOffline || !navigator.onLine) {
+    if (!navigator.onLine) {
       setIsPinSetup(Boolean(localPin || cachedB || cachedP));
-      if (cachedB) setBookings(JSON.parse(cachedB));
-      if (cachedP) setProperties(JSON.parse(cachedP));
+      if (cachedB) setBookings(cachedB);
+      if (cachedP) setProperties(cachedP);
       return;
     }
 
@@ -101,16 +127,16 @@ export default function App() {
       setIsPinSetup(data.isSetup);
     } catch (e) {
       console.error('Auth status fallback to local mode:', e);
-      setIsPinSetup(Boolean(localPin || cachedB || cachedP || true));
-      if (cachedB) setBookings(JSON.parse(cachedB));
-      if (cachedP) setProperties(JSON.parse(cachedP));
+      setIsPinSetup(Boolean(localPin || cachedB || cachedP));
+      if (cachedB) setBookings(cachedB);
+      if (cachedP) setProperties(cachedP);
     }
   };
 
   const fetchProperties = async () => {
-    if (isOffline || !navigator.onLine) {
-      const cached = localStorage.getItem('properties_cache');
-      if (cached) setProperties(JSON.parse(cached));
+    if (!navigator.onLine) {
+      const cached = readLocalData('properties_cache', null);
+      if (cached) setProperties(cached);
       return;
     }
 
@@ -120,20 +146,23 @@ export default function App() {
         throw new Error(`Properties request failed with status ${res.status}`);
       }
       const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Properties response was not a list.');
       setProperties(data);
+      setPropertiesLoadError(false);
       localStorage.setItem('properties_cache', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to fetch properties:', e);
-      const cached = localStorage.getItem('properties_cache');
-      if (cached) setProperties(JSON.parse(cached));
+      setPropertiesLoadError(true);
+      const cached = readLocalData('properties_cache', null);
+      if (cached) setProperties(cached);
     }
   };
 
   const fetchBookings = async () => {
-    if (isOffline || !navigator.onLine) {
-      const cached = localStorage.getItem('bookings_cache');
+    if (!navigator.onLine) {
+      const cached = readLocalData('bookings_cache', null);
       if (cached) {
-        setBookings(JSON.parse(cached));
+        setBookings(cached);
       }
       return;
     }
@@ -150,12 +179,16 @@ export default function App() {
         throw new Error(`Bookings request failed with status ${res.status}`);
       }
       const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Bookings response was not a list.');
       setBookings(data);
+      setSelectedBooking(current => current ? data.find(booking => booking.bookingId === current.bookingId) || null : null);
+      setBookingsLoadError(false);
       localStorage.setItem('bookings_cache', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to fetch bookings:', e);
-      const cached = localStorage.getItem('bookings_cache');
-      if (cached) setBookings(JSON.parse(cached));
+      setBookingsLoadError(true);
+      const cached = readLocalData('bookings_cache', null);
+      if (cached) setBookings(cached);
     }
   };
 
@@ -164,7 +197,7 @@ export default function App() {
       return;
     }
 
-    const queue = JSON.parse(localStorage.getItem('booking_sync_queue') || '[]');
+    const queue = readLocalData('booking_sync_queue', []);
     if (queue.length === 0) return;
 
     setIsSyncing(true);
@@ -237,6 +270,7 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
+        setLocalPin(codeToSubmit);
         localStorage.setItem('auth_token', data.token);
         setToken(data.token);
         setIsAuthenticated(true);
@@ -269,8 +303,6 @@ export default function App() {
       return setSetupError('PIN must be a 4 to 6 digit number.');
     }
 
-    setLocalPin(setupPin);
-
     try {
       const res = await fetch(`${API_BASE}/setup-pin`, {
         method: 'POST',
@@ -279,12 +311,14 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
+        setLocalPin(setupPin);
         setIsPinSetup(true);
         alert('PIN configured successfully! You can now log in.');
       } else {
         setSetupError(data.error || 'PIN configuration failed.');
       }
     } catch (err) {
+      setLocalPin(setupPin);
       setIsPinSetup(true);
       alert('Backend unavailable. Local static mode is active.');
     }
@@ -298,21 +332,23 @@ export default function App() {
 
   // 3. Booking list changes (add, update, delete)
   const handleBookingCreated = async (newBooking) => {
-    const nextBookings = [newBooking, ...bookings];
+    const cachedBookings = readLocalData('bookings_cache', bookings);
+    const nextBookings = [newBooking, ...cachedBookings.filter(booking => booking.bookingId !== newBooking.bookingId)];
     setBookings(nextBookings);
     writeLocalData('bookings_cache', nextBookings);
     setCurrentTab('dashboard');
-    if (navigator.onLine && token && token !== 'local-mode') {
+    if (!String(newBooking.bookingId || '').includes('_OFFLINE_') && navigator.onLine && token && token !== 'local-mode') {
       await fetchBookings();
     }
   };
 
   const handleUpdateBooking = async (updatedBooking) => {
-    const nextBookings = bookings.map(b => b.bookingId === updatedBooking.bookingId ? updatedBooking : b);
+    const nextBookings = readLocalData('bookings_cache', bookings)
+      .map(b => b.bookingId === updatedBooking.bookingId ? updatedBooking : b);
     setBookings(nextBookings);
     writeLocalData('bookings_cache', nextBookings);
     setSelectedBooking(updatedBooking);
-    if (navigator.onLine && token && token !== 'local-mode') {
+    if (!String(updatedBooking.bookingId || '').includes('_OFFLINE_') && navigator.onLine && token && token !== 'local-mode') {
       await fetchBookings();
     }
   };
@@ -448,9 +484,11 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Offline Alert Banner */}
-      {isOffline && (
+      {(isOffline || bookingsLoadError || propertiesLoadError) && (
         <div className="offline-banner">
-          <WifiOff size={16} /> Viewing offline data. Updates will sync when online.
+          <WifiOff size={16} /> {isOffline
+            ? 'Viewing offline data. Updates will sync when online.'
+            : 'Server data is unavailable. Showing cached data and retrying automatically.'}
         </div>
       )}
       {isSyncing && (

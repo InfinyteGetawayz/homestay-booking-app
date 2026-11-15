@@ -268,6 +268,10 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
     };
 
     try {
+      if (!navigator.onLine || token === 'local-mode') {
+        throw new Error('Local-only session');
+      }
+
       const res = await fetch(`${API_BASE}/bookings${editingBooking ? `/${editingBooking.bookingId}` : ''}`, {
         method: editingBooking ? 'PUT' : 'POST',
         headers: {
@@ -299,7 +303,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
         return;
       }
 
-      setSubmitError('Connection failed. Queueing booking offline...');
+      setSubmitError('Server connection failed. Saving this booking on this device for synchronization.');
       offlineQueue.push({ operation: 'create', payload: bookingPayload });
       localStorage.setItem('booking_sync_queue', JSON.stringify(offlineQueue));
       
@@ -315,7 +319,7 @@ export default function BookingForm({ token, bookings = [], properties = [], onB
       cached.push(tempBooking);
       localStorage.setItem('bookings_cache', JSON.stringify(cached));
       
-      alert('Booking saved offline. It will synchronize once internet is restored.');
+      alert('Booking saved on this device. It will synchronize after you connect and log in to the server.');
       onBookingCreated(tempBooking);
     } finally {
       setIsSubmitting(false);

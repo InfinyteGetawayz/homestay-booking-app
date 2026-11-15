@@ -150,7 +150,7 @@ async function getBookings() {
     return result.rows.map(row => convertDatabaseRowToBooking(row));
   } catch (err) {
     console.error('Failed to read bookings:', err);
-    return [];
+    throw err;
   }
 }
 
@@ -403,7 +403,7 @@ async function getProperties() {
     }));
   } catch (err) {
     console.error('Failed to read properties:', err);
-    return [];
+    throw err;
   }
 }
 
@@ -572,7 +572,7 @@ async function getExpenses() {
     }));
   } catch (err) {
     console.error('Failed to read expenses:', err);
-    return [];
+    throw err;
   }
 }
 
@@ -624,7 +624,7 @@ async function getSettings() {
     };
   } catch (err) {
     console.error('Failed to read settings:', err);
-    return { globalMuteReminders: false };
+    throw err;
   }
 }
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'infinite-getaways-v2';
+const CACHE_NAME = 'infinite-getaways-v3';
 // Service worker runs in worker context — avoid import.meta and window APIs here.
 const base = self.registration.scope || '/';
 const STATIC_ASSETS = [
@@ -40,6 +40,20 @@ self.addEventListener('fetch', event => {
 
   // Do not intercept API requests - let the frontend handle offline fallback for data
   if (url.pathname.includes('/api/')) {
+    return;
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
+        if (networkResponse.ok) {
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse.clone()));
+        }
+        return networkResponse;
+      }).catch(() => caches.match(event.request).then(cachedResponse => {
+        return cachedResponse || caches.match(new URL('./index.html', base).pathname);
+      }))
+    );
     return;
   }
 

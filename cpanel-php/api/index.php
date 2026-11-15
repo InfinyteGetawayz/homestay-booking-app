@@ -30,6 +30,9 @@ switch ($path) {
         if ($method !== 'POST') {
             jsonResponse(['error' => 'Method not allowed'], 405);
         }
+        if (readConfigValue('pin_hash', '') !== '') {
+            jsonResponse(['error' => 'PIN is already set. Use change PIN instead.'], 400);
+        }
         $pin = trim((string) ($body['pin'] ?? ''));
         if (!preg_match('/^[0-9]{4,6}$/', $pin)) {
             jsonResponse(['error' => 'PIN must be a 4 to 6 digit number.'], 400);

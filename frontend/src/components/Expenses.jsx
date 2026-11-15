@@ -21,26 +21,33 @@ export default function Expenses({ token, properties = [] }) {
 
   useEffect(() => {
     fetchExpenses();
+    const refreshExpenses = () => fetchExpenses(false);
+    const intervalId = window.setInterval(refreshExpenses, 30000);
+    window.addEventListener('focus', refreshExpenses);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshExpenses);
+    };
   }, []);
 
   useEffect(() => {
     if (!propertyId && properties.length > 0) setPropertyId(properties[0].id);
   }, [properties, propertyId]);
 
-  const fetchExpenses = async () => {
-    setLoading(true);
+  const fetchExpenses = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/expenses`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (res.ok) {
-        setItems(data);
-      }
+      if (!res.ok) throw new Error(data.error || `Expenses request failed with status ${res.status}.`);
+      setItems(data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch expenses:', err);
+      setMessage({ type: 'error', text: err.message || 'Failed to load expenses.' });
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -92,9 +99,13 @@ export default function Expenses({ token, properties = [] }) {
       });
       if (res.ok) {
         setItems(prev => prev.filter(item => item.id !== id));
+      } else {
+        const data = await res.json();
+        setMessage({ type: 'error', text: data.error || 'Failed to delete expense.' });
       }
     } catch (err) {
       console.error(err);
+      setMessage({ type: 'error', text: 'Network error while deleting expense.' });
     }
   };
 

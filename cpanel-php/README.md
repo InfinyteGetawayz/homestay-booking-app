@@ -61,3 +61,13 @@ Then update the credentials in:
 5. Refresh the app. The updated service worker clears the previous static cache when it activates.
 
 Existing expense records have no homestay assignment and appear as unassigned until they are recorded with a homestay. They are not included in an individual homestay's totals.
+
+## Resetting the cPanel PIN
+
+If the current PIN is unavailable, run the CLI-only reset script from cPanel Terminal after uploading it to `public_html/booking-app/api/scripts/reset-pin.php`:
+
+```sh
+php public_html/booking-app/api/scripts/reset-pin.php 123456
+```
+
+The script updates only the `pin_hash` and `auth_token` entries in `app_config`; it does not change bookings, properties, expenses, or other database rows. It refuses to run from a web request. Preserve the existing `api/config.php` database credentials and `APP_SECRET`.

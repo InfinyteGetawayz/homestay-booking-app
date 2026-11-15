@@ -61,6 +61,12 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     setPushEnabled(false);
     fetchSettings();
     fetchProperties();
+    const intervalId = window.setInterval(fetchSettings, 30000);
+    window.addEventListener('focus', fetchSettings);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', fetchSettings);
+    };
   }, []);
 
   const fetchSettings = async () => {
@@ -111,7 +117,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
     const nextVal = !globalMute;
     setGlobalMute(nextVal);
     try {
-      await fetch(`${API_BASE}/settings`, {
+      const res = await fetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,8 +125,13 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
         },
         body: JSON.stringify({ globalMuteReminders: nextVal })
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save reminder settings.');
+      setGlobalMute(data.settings?.globalMuteReminders ?? nextVal);
     } catch (e) {
-      setGlobalMute(!nextVal); // revert on error
+      console.error('Failed to save reminder settings:', e);
+      setGlobalMute(!nextVal);
+      alert(e.message || 'Failed to save reminder settings.');
     }
   };
 
@@ -211,6 +222,7 @@ export default function Settings({ token, onLogout, onPropertiesChanged }) {
       });
       const data = await res.json();
       if (res.ok) {
+        localStorage.setItem('local_app_pin', newPin);
         setPinMessage({ type: 'success', text: 'PIN updated successfully!' });
         setCurrentPin('');
         setNewPin('');
