@@ -1,4 +1,4 @@
-const CACHE_NAME = 'infinite-getaways-v3';
+const CACHE_NAME = 'infinite-getaways-v4';
 // Service worker runs in worker context — avoid import.meta and window APIs here.
 const base = self.registration.scope || '/';
 const STATIC_ASSETS = [
@@ -47,7 +47,14 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request).then(networkResponse => {
         if (networkResponse.ok) {
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse.clone()));
+          try {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => cache.put(event.request, responseToCache))
+              .catch(error => console.warn('Failed to cache app navigation:', error));
+          } catch (error) {
+            console.warn('Failed to clone app navigation response for caching:', error);
+          }
         }
         return networkResponse;
       }).catch(() => caches.match(event.request).then(cachedResponse => {
