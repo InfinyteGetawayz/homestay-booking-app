@@ -176,7 +176,8 @@ switch ($path) {
             $lookup = $mysqli->prepare('SELECT * FROM properties WHERE id = ? LIMIT 1');
             $lookup->bind_param('s', $id);
             $lookup->execute();
-            $property = $lookup->get_result()->fetch_assoc();
+            $propertyRows = fetchStatementRows($lookup);
+            $property = $propertyRows[0] ?? null;
             $lookup->close();
             if (!$property) {
                 $mysqli->close();
@@ -402,7 +403,8 @@ switch ($path) {
             $existingStmt = $lookup->prepare('SELECT * FROM bookings WHERE booking_id = ? LIMIT 1');
             $existingStmt->bind_param('s', $id);
             $existingStmt->execute();
-            $existingRow = $existingStmt->get_result()->fetch_assoc();
+            $existingRows = fetchStatementRows($existingStmt);
+            $existingRow = $existingRows[0] ?? null;
             $existingStmt->close();
             if (!$existingRow) {
                 $lookup->close();
@@ -435,8 +437,8 @@ switch ($path) {
             $overlapStmt = $mysqli->prepare('SELECT booking_id, guest_name, check_in_date, check_out_date, room_selection FROM bookings WHERE booking_id <> ? AND (property_id = ? OR property_id IS NULL) AND check_in_date < ? AND check_out_date > ?');
             $overlapStmt->bind_param('ssss', $id, $payload['propertyId'], $payload['checkOutDate'], $payload['checkInDate']);
             $overlapStmt->execute();
-            $overlaps = $overlapStmt->get_result();
-            while ($overlap = $overlaps->fetch_assoc()) {
+            $overlaps = fetchStatementRows($overlapStmt);
+            foreach ($overlaps as $overlap) {
                 $requestedRooms = array_map('trim', explode(',', (string) $payload['roomSelection']));
                 $existingRooms = array_map('trim', explode(',', (string) $overlap['room_selection']));
                 if (array_intersect($requestedRooms, $existingRooms)) {

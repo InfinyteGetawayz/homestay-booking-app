@@ -58,7 +58,9 @@ function ensureColumn($mysqli, $table, $column, $definition) {
     $stmt = $mysqli->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
     $stmt->bind_param('s', $column);
     $stmt->execute();
-    $exists = $stmt->get_result()->num_rows > 0;
+    $stmt->store_result();
+    $exists = $stmt->num_rows > 0;
+    $stmt->free_result();
     $stmt->close();
     if (!$exists) {
         $mysqli->query("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
@@ -114,12 +116,40 @@ function readConfigValue($key, $default = null) {
     $stmt = $mysqli->prepare('SELECT value FROM app_config WHERE `key` = ? LIMIT 1');
     $stmt->bind_param('s', $key);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
+    $stmt->bind_result($value);
+    $found = $stmt->fetch();
     $stmt->close();
     $mysqli->close();
 
-    return $row ? $row['value'] : $default;
+    return $found ? $value : $default;
+}
+
+function fetchStatementRows($stmt) {
+    $metadata = $stmt->result_metadata();
+    if (!$metadata) {
+        return [];
+    }
+
+    $fields = $metadata->fetch_fields();
+    $values = array_fill(0, count($fields), null);
+    $bindings = [];
+    foreach ($values as $index => &$value) {
+        $bindings[$index] = &$value;
+    }
+    unset($value);
+
+    call_user_func_array([$stmt, 'bind_result'], $bindings);
+    $rows = [];
+    while ($stmt->fetch()) {
+        $row = [];
+        foreach ($fields as $index => $field) {
+            $row[$field->name] = $values[$index];
+        }
+        $rows[] = $row;
+    }
+
+    $metadata->free();
+    return $rows;
 }
 
 function writeConfigValue($key, $value) {
